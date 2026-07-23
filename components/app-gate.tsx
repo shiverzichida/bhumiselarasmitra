@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseConfig } from "@/lib/supabase";
 import { Workspace } from "@/components/workspace";
 
 const supabase = getSupabaseBrowserClient();
+const { isConfigured } = getSupabaseConfig();
 
 export function AppGate() {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "ready">("checking");
 
   useEffect(() => {
+    if (!supabase) {
+      router.replace("/login");
+      return;
+    }
+
     let mounted = true;
 
     void supabase.auth.getSession().then(({ data }) => {
@@ -34,6 +40,10 @@ export function AppGate() {
       data.subscription.unsubscribe();
     };
   }, [router]);
+
+  if (!isConfigured) {
+    return <div style={{ padding: 24, color: "#cbd5e1", background: "#0f172a", minHeight: "100vh" }}>Supabase belum dikonfigurasi.</div>;
+  }
 
   if (status === "checking") {
     return <div style={{ padding: 24, color: "#cbd5e1", background: "#0f172a", minHeight: "100vh" }}>Checking session...</div>;

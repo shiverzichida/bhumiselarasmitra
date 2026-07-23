@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import logoImage from "@/logo-bsm.png";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseConfig } from "@/lib/supabase";
 import styles from "./login-page.module.css";
 
 const supabase = getSupabaseBrowserClient();
+const { isConfigured } = getSupabaseConfig();
 
 export function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         router.replace("/");
@@ -24,6 +26,10 @@ export function LoginPage() {
   }, [router]);
 
   async function signIn() {
+    if (!supabase) {
+      setStatus("Supabase environment variables belum dipasang di Vercel atau .env.local.");
+      return;
+    }
     setBusy(true);
     setStatus("Signing in...");
     const { error } = await supabase.auth.signInWithPassword({
@@ -40,6 +46,10 @@ export function LoginPage() {
   }
 
   async function registerDemoUser() {
+    if (!supabase) {
+      setStatus("Supabase environment variables belum dipasang di Vercel atau .env.local.");
+      return;
+    }
     setBusy(true);
     setStatus("Registering demo user...");
     const { data, error } = await supabase.auth.signUp({
@@ -81,6 +91,9 @@ export function LoginPage() {
           <p className={styles.eyebrow}>Secure Login</p>
           <h2>Masuk ke workspace</h2>
           <p>Gunakan akun operasional atau akun demo yang sudah Anda buat di Supabase.</p>
+          {!isConfigured && (
+            <p className={styles.warning}>Supabase belum terkonfigurasi. Tambahkan `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.</p>
+          )}
 
           <div className={styles.form}>
             <label className={styles.field}>

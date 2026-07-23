@@ -43,6 +43,13 @@ export function Workspace() {
       }
     }
 
+    if (!supabase) {
+      setAuthStatus("Supabase belum dikonfigurasi.");
+      setCloudStatus("Tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      router.replace("/login");
+      return;
+    }
+
     void supabase.auth.getSession().then(({ data, error }) => {
       if (error) {
         setAuthStatus(`Session check failed: ${error.message}`);
@@ -70,7 +77,7 @@ export function Workspace() {
     });
 
     return () => data.subscription.unsubscribe();
-  }, []);
+  }, [router]);
 
   const invoiceGrandTotal = useMemo(
     () => draft.invoiceItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0),
@@ -205,6 +212,10 @@ export function Workspace() {
   }
 
   async function signOut() {
+    if (!supabase) {
+      router.replace("/login");
+      return;
+    }
     await supabase.auth.signOut();
     setAuthStatus("Logged out.");
     router.replace("/login");
