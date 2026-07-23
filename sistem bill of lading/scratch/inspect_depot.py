@@ -1,0 +1,72 @@
+import zipfile
+import xml.etree.ElementTree as ET
+import re
+
+xlsx_path = "PNK CONTAINER MOVEMENT - WGM 256T (1).xlsx"
+
+def inspect_depot(filename):
+    with zipfile.ZipFile(filename, 'r') as z:
+        shared_strings = []
+        if 'xl/sharedStrings.xml' in z.namelist():
+            ss_data = z.read('xl/sharedStrings.xml')
+            root = ET.fromstring(ss_data)
+            ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+            for si in root.findall('ns:si', ns):
+                t_elements = si.findall('.//ns:t', ns)
+                text = "".join([t.text for t in t_elements if t.text])
+                shared_strings.append(text)
+
+        wb_data = z.read('xl/workbook.xml')
+        wb_root = ET.fromstring(wb_data)
+        ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        sheets = []
+        for sheet in wb_root.findall('.//ns:sheet', ns):
+            name = sheet.attrib.get('name')
+            sheet_id = sheet.attrib.get('sheetId')
+            r_id = sheet.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+            sheets.append({'name': name, 'id': sheet_id, 'r_id': r_id})
+
+        rels = {}
+        if 'xl/_rels/workbook.xml.rels' in z.namelist():
+            rels_data = z.read('xl/_rels/workbook.xml.rels')
+            rels_root = ET.fromstring(rels_data)
+            rel_ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+            for rel in rels_root.findall('.//r:Relationship', rel_ns):
+                rels[rel.attrib.get('Id')] = rel.attrib.get('Target')
+
+        for s in sheets:
+            target = rels.get(s['r_id'])
+            sheet_file = f"xl/{target}" if not target.startswith('xl/') else target
+            sheet_data = z.read(sheet_file)
+            sheet_root = ET.fromstring(sheet_data)
+            
+            rows = {}
+            for row in sheet_root.findall('.//ns:row', ns):
+                row_idx = int(row.attrib.get('r'))
+                row_data = {}
+                for cell in row.findall('ns:c', ns):
+                    ref = cell.attrib.get('r')
+                    col_letter = re.match(r'^([A-Z]+)', ref).group(1)
+                    val_el = cell.find('ns:v', ns)
+                    t_attr = cell.attrib.get('t')
+                    
+                    if val_el is not None:
+                        val = val_el.text
+                        if t_attr == 's':
+                            val = shared_strings[int(val)]
+                        row_data[col_letter] = val
+                    else:
+                        row_data[col_letter] = ""
+                rows[row_idx] = row_data
+
+            print(f"\nUnique values in Column P (Depot) for sheet '{s['name']}':")
+            p_vals = {}
+            for idx in sorted(rows.keys()):
+                if idx <= 5: continue
+                val = rows[idx].get('P', '')
+                if val:
+                    p_vals[val] = p_vals.get(val, 0) + 1
+            for v, c in p_vals.items():
+                print(f"  - '{v}': {c} times")
+
+inspect_depot(xlsx_path)

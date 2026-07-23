@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PT. Putera Utama Lautan - Bill of Lading System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css?v=2">
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SheetJS for Excel Exports -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2pdf.js for diagram exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- LOGIN SCREEN OVERLAY -->
+    <div id="login-overlay" class="login-overlay" style="display: none;">
+        <div class="login-card">
+            <div class="login-logo">PUL</div>
+            <h2>PT. Putera Utama Lautan</h2>
+            <p>B/L Management System Login</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+                <div id="login-error-msg" class="login-error-msg" style="display: none;">Invalid username or password.</div>
+                <button type="submit" class="btn btn-primary login-btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP WRAPPER (Hidden when printing) -->
+    <div id="app-container" class="no-print">
+        
+        <!-- SIDEBAR / NAVIGATION -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo">PUL</div>
+                <div class="brand-text">
+                    <h1>Putera Utama Lautan</h1>
+                    <span>B/L MANAGEMENT SYSTEM</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button id="nav-dashboard-btn" class="nav-btn active">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span class="nav-text">Dashboard</span>
+                </button>
+                <button id="nav-create-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span class="nav-text">Create New B/L</span>
+                </button>
+                <button id="nav-history-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span class="nav-text">History Logs</span>
+                </button>
+                <button id="nav-manifest-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span class="nav-text">Cargo Manifest</span>
+                </button>
+                <button id="nav-container-manifest-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                    <span class="nav-text">Container Manifest</span>
+                </button>
+                <button id="nav-container-list-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span class="nav-text">Container List</span>
+                </button>
+                <button id="nav-movement-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                    <span class="nav-text">Container Movement</span>
+                </button>
+                <a href="schedule/index.php" target="_blank" class="nav-btn" style="text-decoration: none; color: inherit; display: flex; align-items: center; width: 100%;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span class="nav-text">Sailing Schedule</span>
+                </a>
+                <button id="nav-kas-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    <span class="nav-text">Kas Operasional</span>
+                </button>
+                <button id="nav-trucking-btn" class="nav-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2" ry="2"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="12.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                    <span class="nav-text">Truck Monitoring</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p>&copy; 2026 PT. Putera Utama Lautan</p>
+                <p>Local Time: <span id="current-time">15:45</span></p>
+            </div>
+        </aside>
+
+        <!-- SIDEBAR OVERLAY FOR MOBILE -->
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            
+            <!-- TOP BAR -->
+            <header class="top-bar">
+                <button id="mobile-sidebar-toggle" class="mobile-toggle-btn no-print" aria-label="Toggle Menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="header-title">
+                    <h2 id="page-title">Dashboard</h2>
+                    <p id="page-subtitle">Manage and print your cargo bills of lading</p>
+                </div>
+                <div class="top-bar-right">
+                    <!-- Device Label settings -->
+                    <div class="device-profile" id="device-setting-container">
+                        <span class="device-avatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </span>
+                        <div class="device-details">
+                            <span class="device-label-text" id="lbl-device-name">Unknown Device</span>
+                            <button class="btn-edit-device" id="btn-edit-device-label" title="Rename Device">Rename</button>
+                        </div>
+                    </div>
+                    <!-- User Profile -->
+                    <div class="user-profile">
+                        <span class="user-avatar">AD</span>
+                        <div class="user-details">
+                            <span class="user-name">Admin Port Operator</span>
+                            <span class="user-role">Pontianak Terminal</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- VIEW: DASHBOARD -->
+            <section id="view-dashboard" class="content-view active">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total B/Ls</h3>
+                            <p id="stat-total-count">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Prepaid Term</h3>
+                            <p id="stat-prepaid-count">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Port of Loading</h3>
+                            <p id="stat-pol-count">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEARCH & FILTER BAR -->
+                <div class="action-bar">
+                    <div class="search-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="search-input" placeholder="Search by B/L No., Booking No., Shipper or Consignee...">
+                    </div>
+                    <div class="page-size-selector" style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.85rem;">
+                        <span>Show</span>
+                        <select id="page-size-select" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; outline: none;">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                        </select>
+                        <span>entries</span>
+                    </div>
+                    <div class="action-buttons-group" style="display: flex; gap: 10px;">
+                        <input type="file" id="import-pdf-input" accept=".pdf" style="display: none;">
+                        <button id="btn-import-pdf" class="btn btn-outline" style="border-color: var(--color-primary); color: var(--color-primary);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            Import PDF B/L
+                        </button>
+                        <button id="btn-create-new" class="btn btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            New Bill of Lading
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BILL OF LADING LIST -->
+                <div class="bl-list-container">
+                    <div class="list-header">
+                        <span>B/L Number</span>
+                        <span>Consignee</span>
+                        <span>Shipper / Exporter</span>
+                        <span>Port of Discharge</span>
+                        <span>Date of Issue</span>
+                        <span>Actions</span>
+                    </div>
+                    <div id="bl-list-items" class="bl-list-items">
+                        <!-- Dynamic items will be inserted here -->
+                        <div class="no-data-msg">
+                            <p>No Bill of Lading found. Click "New Bill of Lading" to create one.</p>
+                        </div>
+                    </div>
+                    <!-- PAGINATION CONTROLS -->
+                    <div id="pagination-controls" class="pagination-container"></div>
+                </div>
+            </section>
+
+            <!-- VIEW: CREATE / EDIT FORM -->
+            <section id="view-editor" class="content-view">
+                <div class="form-container">
+                    
+                    <!-- FORM HEADER / CONTROLS -->
+                    <div class="editor-header">
+                        <button id="btn-back-to-dashboard" class="btn btn-outline">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            Back to Dashboard
+                        </button>
+                        <div class="editor-actions">
+                            <button id="btn-load-sample" class="btn btn-outline">Load Sample Data</button>
+                            <button id="btn-save-bl" class="btn btn-success">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save B/L
+                            </button>
+                            <button id="btn-share-bl" type="button" class="btn btn-outline" style="border-color: #6366f1; color: #6366f1; gap: 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                                Share Draft
+                            </button>
+                            <button id="btn-preview-print" class="btn btn-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                Preview & Print
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="bl-form" class="bl-form">
+                        <input type="hidden" id="form-bl-id">
+                        <input type="hidden" id="form-share-slug">
+
+                        <!-- TABS NAVIGATION -->
+                        <div class="tabs-nav">
+                            <button type="button" class="tab-btn active" data-tab="tab-general">General Info</button>
+                            <button type="button" class="tab-btn" data-tab="tab-parties">Parties</button>
+                            <button type="button" class="tab-btn" data-tab="tab-routing">Routing & Vessel</button>
+                            <button type="button" class="tab-btn" data-tab="tab-cargo">Cargo & Containers</button>
+                            <button type="button" class="tab-btn" data-tab="tab-freight">Freight & Signatures</button>
+                        </div>
+
+                        <!-- TAB CONTENT: GENERAL INFO -->
+                        <div id="tab-general" class="tab-content active">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="company_version">Company Version *</label>
+                                    <select id="company_version" required>
+                                        <option value="PT. Putera Utama Lautan">PT. Putera Utama Lautan</option>
+                                        <option value="PT. Putera Utama Lautan">PT. Putera Utama Lautan</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Company Logo</label>
+                                    <div class="logo-upload-container">
+                                        <input type="file" id="logo_upload" accept="image/*" style="display: none;">
+                                        <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;" onclick="document.getElementById('logo_upload').click()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                            Upload Logo
+                                        </button>
+                                        <button type="button" class="btn btn-outline btn-danger-outline" style="padding: 6px 12px; font-size: 0.8rem;" onclick="resetCompanyLogo()">Reset</button>
+                                        <span id="logo_status_msg" class="logo-status-text" style="font-size: 0.75rem; color: var(--text-muted); margin-left: 8px;">Default logo active</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="doc_type">Document Type *</label>
+                                    <select id="doc_type" required>
+                                        <option value="BILL OF LADING">BILL OF LADING</option>
+                                        <option value="SEA WAYBILL NON-NEGOTIABLE">SEA WAYBILL NON-NEGOTIABLE</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="booking_no">Booking Number *</label>
+                                    <input type="text" id="booking_no" required placeholder="e.g. JL26050212">
+                                </div>
+                                <div class="form-group">
+                                    <label for="bl_no">Bill of Lading Number *</label>
+                                    <input type="text" id="bl_no" required placeholder="e.g. DJBPNK26050203">
+                                </div>
+                                <div class="form-group span-2">
+                                    <label for="clause_text">Jurisdiction & Law Clause</label>
+                                    <textarea id="clause_text" rows="3">"The Contract evidenced by or contained in this bill of lading is governed by the law of Indonesia and any claim or dispute arising hereunder or in connection herewith shall be determined by the courts in Indonesia and no other court."</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB CONTENT: PARTIES -->
+                        <div id="tab-parties" class="tab-content">
+                            <div class="form-grid">
+                                <div class="form-group dropdown-container">
+                                    <label for="shipper_name">Shipper / Exporter Name *</label>
+                                    <div class="search-suggest-box">
+                                        <input type="text" id="shipper_name" class="search-suggest-input" placeholder="🔍 Search or enter shipper name..." required autocomplete="off">
+                                        <div id="shipper_dropdown" class="suggest-dropdown"></div>
+                                    </div>
+                                    <label for="shipper_address">Shipper Address *</label>
+                                    <textarea id="shipper_address" rows="4" required placeholder="Shipper full address..."></textarea>
+                                    <div class="party-action-row">
+                                        <button type="button" class="btn-quick-fill" onclick="quickFillShipper()">Set Default Jambi Shipper</button>
+                                        <button type="button" id="btn-save-shipper-party" class="btn-save-party hidden" onclick="saveCurrentParty('shipper')">💾 Save to recommendations</button>
+                                    </div>
+                                </div>
+                                <div class="form-group dropdown-container">
+                                    <label for="consignee_name">Consignee Name *</label>
+                                    <div class="search-suggest-box">
+                                        <input type="text" id="consignee_name" class="search-suggest-input" placeholder="🔍 Search or enter consignee name..." required autocomplete="off">
+                                        <div id="consignee_dropdown" class="suggest-dropdown"></div>
+                                    </div>
+                                    <label for="consignee_address">Consignee Address *</label>
+                                    <textarea id="consignee_address" rows="4" required placeholder="Consignee full address..."></textarea>
+                                    <div class="party-action-row">
+                                        <button type="button" class="btn-quick-fill" onclick="quickFillConsignee()">Set Default Pontianak Consignee</button>
+                                        <button type="button" id="btn-save-consignee-party" class="btn-save-party hidden" onclick="saveCurrentParty('consignee')">💾 Save to recommendations</button>
+                                    </div>
+                                </div>
+                                <div class="form-group dropdown-container">
+                                    <label for="notify_name">Notify Party Name *</label>
+                                    <div class="search-suggest-box">
+                                        <input type="text" id="notify_name" class="search-suggest-input" placeholder="🔍 Search or enter notify party name..." required autocomplete="off">
+                                        <div id="notify_party_dropdown" class="suggest-dropdown"></div>
+                                    </div>
+                                    <label for="notify_address">Notify Party Address *</label>
+                                    <textarea id="notify_address" rows="3" required placeholder="Notify party address..."></textarea>
+                                    <div class="party-action-row">
+                                        <button type="button" id="btn-save-notify-party" class="btn-save-party hidden" onclick="saveCurrentParty('notify')">💾 Save to recommendations</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="delivery_agent">For delivery of goods please apply to:</label>
+                                    <textarea id="delivery_agent" rows="4" placeholder="Name and address of delivery agent at destination"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- TAB CONTENT: ROUTING -->
+                        <div id="tab-routing" class="tab-content">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="pre_carriage">Pre-Carriage</label>
+                                    <input type="text" id="pre_carriage" placeholder="Pre-Carriage vessel/vehicle if any">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ocean_vessel">Ocean Vessel *</label>
+                                    <input type="text" id="ocean_vessel" required placeholder="e.g. MMSS 2711">
+                                </div>
+                                <div class="form-group">
+                                    <label for="voy_no">Voy. No. *</label>
+                                    <input type="text" id="voy_no" required placeholder="e.g. 261012N">
+                                </div>
+                                <div class="form-group">
+                                    <label for="place_of_receipt">Place of Receipt</label>
+                                    <input type="text" id="place_of_receipt" placeholder="e.g. JAMBI, INDONESIA">
+                                </div>
+                                <div class="form-group">
+                                    <label for="port_of_loading">Port of Loading *</label>
+                                    <input type="text" id="port_of_loading" required placeholder="e.g. JAMBI, INDONESIA">
+                                </div>
+                                <div class="form-group">
+                                    <label for="port_of_discharge">Port of Discharge *</label>
+                                    <input type="text" id="port_of_discharge" required placeholder="e.g. PONTIANAK, INDONESIA">
+                                </div>
+                                <div class="form-group">
+                                    <label for="place_of_delivery">Place of Delivery *</label>
+                                    <input type="text" id="place_of_delivery" required placeholder="e.g. PONTIANAK, INDONESIA">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB CONTENT: CARGO & CONTAINERS -->
+                        <div id="tab-cargo" class="tab-content">
+                            <div class="cargo-builder-panel">
+                                <h4>Container List Builder</h4>
+                                <p class="help-text">Enter your container numbers (one per line or separated by comma) and click "Generate Grid Text" to automatically structure the column output. Or you can edit the text columns below directly.</p>
+                                <div class="builder-inputs">
+                                    <div class="form-group">
+                                        <label for="builder-containers">Paste Container Numbers Here</label>
+                                        <textarea id="builder-containers" rows="4" placeholder="CRSU1213239/20GP&#10;CRSU1247943/20GP&#10;CRSU1249904/20GP"></textarea>
+                                    </div>
+                                    <div class="builder-actions-inline">
+                                        <button type="button" id="btn-build-cargo" class="btn btn-outline">Generate Grid Text</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cargo-columns-grid">
+                                <div class="form-group">
+                                    <label for="cargo_containers">Container No. and Seal No. Marks & Nos.</label>
+                                    <textarea id="cargo_containers" rows="12" placeholder="Container list..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cargo_quantity">Quantity and Kind Of Packages</label>
+                                    <textarea id="cargo_quantity" rows="12" placeholder="e.g. 20X20'GP CONTAINER..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cargo_description">Description of Goods</label>
+                                    <textarea id="cargo_description" rows="12" placeholder="Goods details..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cargo_measurement">Measurement & Weight Column</label>
+                                    <textarea id="cargo_measurement" rows="12" placeholder="Weights & Measurements..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB CONTENT: FREIGHT & SIGNATURES -->
+                        <div id="tab-freight" class="tab-content">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="freight_charges">FREIGHT and CHARGES Term</label>
+                                    <input type="text" id="freight_charges" placeholder="e.g. Term : FREIGHT PREPAID">
+                                </div>
+                                <div class="form-group">
+                                    <label for="revenue_tons">Revenue Tons</label>
+                                    <input type="text" id="revenue_tons" placeholder="e.g. 20 Units">
+                                </div>
+                                <div class="form-group">
+                                    <label for="rate">Rate</label>
+                                    <input type="text" id="rate" placeholder="e.g. As Agreed">
+                                </div>
+                                <div class="form-group">
+                                    <label for="per">Per</label>
+                                    <input type="text" id="per" placeholder="e.g. CTR">
+                                </div>
+                                <div class="form-group">
+                                    <label for="prepaid">Prepaid</label>
+                                    <input type="text" id="prepaid" placeholder="e.g. PREPAID">
+                                </div>
+                                <div class="form-group">
+                                    <label for="collect">Collect</label>
+                                    <input type="text" id="collect" placeholder="e.g. COLLECT">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ex_rate">Ex. Rate</label>
+                                    <input type="text" id="ex_rate" placeholder="Exchange rate if applicable">
+                                </div>
+                                <div class="form-group">
+                                    <label for="prepaid_at">Prepaid At</label>
+                                    <input type="text" id="prepaid_at" placeholder="e.g. JAMBI">
+                                </div>
+                                <div class="form-group">
+                                    <label for="payable_at">Payable At</label>
+                                    <input type="text" id="payable_at" placeholder="e.g. PONTIANAK">
+                                </div>
+                                <div class="form-group">
+                                    <label for="place_date_issue">Place and Date of Issue *</label>
+                                    <input type="text" id="place_date_issue" required placeholder="e.g. JAMBI, INDONESIA 27-May-2026 8:41:03">
+                                    <button type="button" class="btn-quick-fill" onclick="setCurrentPlaceDate()">Set Jambi / Current Time</button>
+                                </div>
+                                <div class="form-group">
+                                    <label for="movement">MOVEMENT</label>
+                                    <input type="text" id="movement" placeholder="e.g. FCL/FCL">
+                                </div>
+                                <div class="form-group">
+                                    <label for="no_of_original">No. of Original B(s) / L *</label>
+                                    <input type="text" id="no_of_original" required placeholder="e.g. THREE(3)">
+                                </div>
+                                <div class="form-group span-2">
+                                    <label for="signed_on_behalf">Signed on behalf of *</label>
+                                    <input type="text" id="signed_on_behalf" required placeholder="e.g. PT. PUTERA UTAMA LAUTAN">
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </section>
+
+            <!-- VIEW: PRINT PREVIEW -->
+            <section id="view-preview" class="content-view">
+                <div class="preview-controls">
+                    <button id="btn-preview-back" class="btn btn-outline">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                        Back to Editor
+                    </button>
+                    <div class="print-options">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="print-page2-chk">
+                            Include Terms & Conditions (Page 2)
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="print-signature-chk">
+                            Include Signature & Stamp
+                        </label>
+                        <div class="print-copy-type-container" style="display: flex; align-items: center; gap: 8px;">
+                            <label for="print-copy-type" style="font-size: 0.875rem; color: var(--text-secondary);">Copy Type:</label>
+                            <select id="print-copy-type" style="padding: 6px 10px; font-size: 0.85rem; height: 36px;">
+                                <option value="ORIGINAL">ORIGINAL</option>
+                                <option value="COPY NON-NEGOTIABLE">COPY NON-NEGOTIABLE</option>
+                                <option value="3_OBL_3_NN">3 OBL and 3 NN BL</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-trigger-print" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Print to PDF
+                    </button>
+                </div>
+
+                <!-- On screen container representing the document pages -->
+                <div class="preview-scroll-container">
+                    <div id="preview-document" class="preview-document">
+                        <!-- Loaded dynamically from templates below -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: HISTORY LOGS -->
+            <section id="view-history" class="content-view">
+                <div class="history-container">
+                    <div class="history-header">
+                        <h3>Audit Trail / History Logs</h3>
+                        <button id="btn-refresh-history" class="btn btn-outline">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                            Refresh Logs
+                        </button>
+                    </div>
+                    
+                    <div class="history-table-wrapper">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>B/L Number</th>
+                                    <th>Action</th>
+                                    <th>Device</th>
+                                    <th>IP Address</th>
+                                    <th>Timestamp</th>
+                                    <th style="text-align: right;">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-log-items">
+                                <tr>
+                                    <td colspan="6" class="loading-logs-msg">Loading audit logs from server...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CARGO MANIFEST -->
+            <section id="view-manifest" class="content-view">
+                <div class="manifest-controls no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-card); padding: 16px 24px; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 16px;">
+                    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap; flex-grow: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="manifest-voyage-select" style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Select Voyage:</label>
+                            <select id="manifest-voyage-select" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; min-width: 220px; cursor: pointer;">
+                                <option value="">-- Choose Voyage --</option>
+                            </select>
+                        </div>
+                        
+                        <div id="manifest-pol-container" style="display: none; align-items: center; gap: 10px;">
+                            <label for="manifest-pol-select" style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">POL:</label>
+                            <select id="manifest-pol-select" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; min-width: 180px; cursor: pointer;">
+                            </select>
+                        </div>
+                        
+                        <div id="manifest-pod-container" style="display: none; align-items: center; gap: 10px;">
+                            <label for="manifest-pod-select" style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">POD:</label>
+                            <select id="manifest-pod-select" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; min-width: 180px; cursor: pointer;">
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-print-manifest" class="btn btn-primary" style="gap: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Print Manifest
+                    </button>
+                </div>
+                
+                <div class="manifest-scroll-container">
+                    <div id="manifest-preview-content" class="manifest-preview-content">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CONTAINER MANIFEST -->
+            <section id="view-container-manifest" class="content-view">
+                <div class="manifest-controls no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-card); padding: 16px 24px; border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 16px;">
+                    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap; flex-grow: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="container-manifest-voyage-select" style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Select Voyage:</label>
+                            <select id="container-manifest-voyage-select" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; min-width: 220px; cursor: pointer;">
+                                <option value="">-- Choose Voyage --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-export-excel-container-manifest" class="btn btn-secondary" style="gap: 8px;" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Export Excel
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">No</th>
+                                    <th>Nomor Booking</th>
+                                    <th>Nomor Kontainer</th>
+                                </tr>
+                            </thead>
+                            <tbody id="container-manifest-table-body">
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">Silakan pilih Vessel Voyage terlebih dahulu.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: KAS OPERASIONAL -->
+            <section id="view-kas" class="content-view">
+                <div class="stats-row no-print">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Pengeluaran</h3>
+                            <p id="stat-kas-total-amount">Rp 0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Transaksi</h3>
+                            <p id="stat-kas-total-count">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Kontainer</h3>
+                            <p id="stat-kas-total-containers">0 Box</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar no-print">
+                    <div class="action-bar-left">
+                        <div class="search-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="kas-search-input" placeholder="Cari No. Proforma, Kapal...">
+                        </div>
+                        <div class="size-selector">
+                            <span>Tampilkan:</span>
+                            <select id="kas-page-size-select">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="action-bar-right" style="display: flex; gap: 8px;">
+                        <button id="btn-upload-proforma" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            Unggah Invoice (PDF/JPG)
+                        </button>
+                        <button id="btn-create-manual-kas" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Input Manual
+                        </button>
+                        <button id="btn-export-excel-kas" class="btn btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                            Ekspor Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="kas-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 110px;">Tanggal</th>
+                                <th style="width: 160px;">Invoice Pelindo</th>
+                                <th>Keterangan</th>
+                                <th>No. Container</th>
+                                <th class="text-right" style="width: 140px;">Grand Total</th>
+                                <th class="text-right" style="width: 140px;">Saldo</th>
+                                <th class="text-center no-print" style="width: 130px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kas-table-body">
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">Memuat data kas operasional...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-container no-print">
+                    <div class="pagination-info" id="kas-pagination-info">Menampilkan 0 - 0 dari 0 data</div>
+                    <div class="pagination-buttons" id="kas-pagination-buttons">
+                        <!-- Dynamic page buttons -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: TRUCK MONITORING -->
+            <section id="view-trucking" class="content-view">
+                <div class="stats-row no-print">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2" ry="2"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="12.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Job Trucking</h3>
+                            <p id="stat-truck-total-jobs">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Kontainer Dilansir</h3>
+                            <p id="stat-truck-total-containers">0 Box</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Muatan Lansir</h3>
+                            <p id="stat-truck-total-weight">0 kg</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar no-print">
+                    <div class="action-bar-left">
+                        <div class="search-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="truck-search-input" placeholder="Cari Vessel, Kontainer...">
+                        </div>
+                    </div>
+                    <div class="action-bar-right">
+                        <button id="btn-create-truck-job" class="btn btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Tambah Job Lansir
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table trucking-grid-table" id="truck-table">
+                        <thead>
+                            <tr>
+                                <th>Vessel Voyage</th>
+                                <th>No. Container</th>
+                                <th>Ukuran</th>
+                                <th>Komoditas</th>
+                                <th>PIC</th>
+                                <th>Perusahaan</th>
+                                <th class="text-right">Total Berat (kg)</th>
+                                <th>Jumlah CDD</th>
+                                <th class="text-center no-print" style="width: 200px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="truck-table-body">
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">Memuat data truck monitoring...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- TRUCKING JOB EDITOR MODAL -->
+                <div id="truck-editor-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal-card" style="max-width: 1050px; width: 95%;">
+                        <div class="modal-header">
+                            <h2 id="truck-editor-title">Tambah Job Monitoring Trucking</h2>
+                            <button type="button" class="btn-close-modal" id="btn-close-truck-editor">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="truck-editor-form">
+                                <input type="hidden" id="truck-job-id" value="0">
+                                
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                    <div class="form-group">
+                                        <label for="truck-vessel-voyage">Vessel / Voyage *</label>
+                                        <input type="text" id="truck-vessel-voyage" required placeholder="Pilih atau ketik Kapal..." list="vessels-datalist">
+                                        <datalist id="vessels-datalist"></datalist>
+                                        <datalist id="containers-datalist"></datalist>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="truck-commodity">Komoditas / Cargo *</label>
+                                        <input type="text" id="truck-commodity" required placeholder="Contoh: Pupuk NPK / Kayu">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="truck-pic-name">Nama PIC *</label>
+                                        <input type="text" id="truck-pic-name" required placeholder="Contoh: Andi / a">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="truck-company-name">Perusahaan *</label>
+                                        <input type="text" id="truck-company-name" required placeholder="Contoh: PT Andi Jaya">
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: var(--text-primary); margin: 0;">
+                                        Daftar Kontainer *
+                                    </h3>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-container-row">
+                                        + Tambah Kontainer
+                                    </button>
+                                </div>
+
+                                <div class="table-container" style="max-height: 250px; overflow-y: auto; overflow-x: auto; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 6px;">
+                                    <table class="data-table" style="margin-bottom: 0;">
+                                        <thead>
+                                            <tr>
+                                                <th>No. Container *</th>
+                                                <th style="width: 160px;">Ukuran *</th>
+                                                <th style="width: 140px;">Berat (kg) *</th>
+                                                <th style="width: 200px;">Foto Trailer</th>
+                                                <th class="text-center" style="width: 60px;">Hapus</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="container-alloc-rows">
+                                            <!-- Dynamically added by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                                    <div class="form-group">
+                                        <label for="truck-origin-address" style="display: flex; align-items: center; gap: 6px;">
+                                            <i class="fas fa-map-marker-alt" style="color: #10b981; font-size: 0.85rem;"></i>
+                                            Alamat Asal (Pelabuhan / Gudang)
+                                        </label>
+                                        <input type="text" id="truck-origin-address" placeholder="Contoh: Pelabuhan Talang Duku, Jambi">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="truck-destination-address" style="display: flex; align-items: center; gap: 6px;">
+                                            <i class="fas fa-map-marker-alt" style="color: #ef4444; font-size: 0.85rem;"></i>
+                                            Alamat Tujuan Pengantaran
+                                        </label>
+                                        <input type="text" id="truck-destination-address" placeholder="Contoh: Gudang PT. ABC, Jl. Raya No. 1, Pontianak">
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; max-width: 400px;">
+                                    <div class="form-group">
+                                        <label for="truck-total-weight">Total Berat Gabungan (kg)</label>
+                                        <input type="number" id="truck-total-weight" readonly style="background-color: rgba(255,255,255,0.05); cursor: not-allowed;" placeholder="Otomatis dari total kontainer">
+                                    </div>
+                                </div>
+
+                                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0;">
+
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: var(--text-primary); margin: 0;">
+                                        Alokasi Pengiriman (Lansir ke Truck CDD)
+                                    </h3>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-add-truck-row">
+                                        + Tambah Truck CDD
+                                    </button>
+                                </div>
+
+                                <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 6px;">
+                                    <table class="data-table" style="margin-bottom: 0;">
+                                        <thead>
+                                            <tr>
+                                                <th>No. Plat CDD *</th>
+                                                <th>Nama Driver *</th>
+                                                <th style="width: 120px;">Beban *</th>
+                                                <th style="width: 220px;">Foto Truck</th>
+                                                <th class="text-center" style="width: 60px;">Hapus</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="truck-allocations-body">
+                                            <!-- Dynamic allocation rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div id="truck-weight-status-badge" style="padding: 10px 14px; border-radius: 6px; font-weight: 500; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; margin-bottom: 24px;">
+                                    <span id="truck-weight-status-icon">ℹ</span>
+                                    <span id="truck-weight-status-text">Total alokasi muatan: 0 / 0 kg</span>
+                                </div>
+
+                                <div class="modal-footer" style="padding: 0;">
+                                    <button type="button" class="btn btn-secondary" id="btn-cancel-truck-editor">Batal</button>
+                                    <button type="submit" class="btn btn-primary" id="btn-save-truck-job">Simpan Data</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TRANSLOADING FLOW PREVIEW MODAL -->
+                <div id="truck-preview-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal-card" style="max-width: 1000px; width: 95%;">
+                        <div class="modal-header no-print">
+                            <h2>Preview Ilustrasi Transloading</h2>
+                            <button type="button" class="btn-close-modal" id="btn-close-truck-preview">×</button>
+                        </div>
+                        <div class="modal-body" style="padding: 24px;">
+                            <!-- Printable Area -->
+                            <div id="truck-print-area" style="background: white; color: #1e293b; padding: 20px; border-radius: 8px; font-family: 'Inter', sans-serif;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-bottom: 14px;">
+                                    <div>
+                                        <h2 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.3rem; color: #1e3a8a; font-weight: 800; text-transform: uppercase;">
+                                            PT. Putera Utama Lautan
+                                        </h2>
+                                        <p style="margin: 3px 0 0 0; font-size: 0.78rem; color: #64748b; font-weight: 500;">
+                                            LAPORAN MONITORING TRANSLOADING (LANSIR MUATAN KONTAINER)
+                                        </p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span style="font-size: 0.75rem; background: #eff6ff; color: #2563eb; padding: 3px 9px; border-radius: 50px; font-weight: 600; border: 1px solid #bfdbfe;">
+                                            DOKUMEN OPERASIONAL
+                                        </span>
+                                        <p id="truck-preview-date" style="margin: 5px 0 0 0; font-size: 0.75rem; color: #64748b;">
+                                            Tanggal Cetak: -
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 0.82rem;">
+                                    <!-- Col 1 -->
+                                    <div style="padding-right: 16px; border-right: 1px solid #e2e8f0;">
+                                        <table style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0; width: 100px; white-space: nowrap;">Vessel Voyage</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-vessel">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">No. Container</td>
+                                                <td style="font-weight: 700; color: #1d4ed8; font-family: monospace;" id="lbl-preview-container">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Ukuran</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-size">-</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <!-- Col 2 -->
+                                    <div style="padding: 0 16px; border-right: 1px solid #e2e8f0;">
+                                        <table style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0; width: 90px; white-space: nowrap;">Nama PIC</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-pic">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Perusahaan</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-company">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Komoditas</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-commodity">-</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <!-- Col 3 -->
+                                    <div style="padding-left: 16px;">
+                                        <table style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0; width: 100px; white-space: nowrap;">Total Muatan</td>
+                                                <td style="font-weight: 700; color: #1e293b;" id="lbl-preview-weight">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Total Armada</td>
+                                                <td style="font-weight: 600; color: #1e293b;" id="lbl-preview-trucks">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Asal</td>
+                                                <td style="font-weight: 600; color: #1e293b; font-size: 0.78rem;" id="lbl-preview-origin">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #64748b; font-weight: 500; padding: 3px 0;">Tujuan</td>
+                                                <td style="font-weight: 600; color: #1e293b; font-size: 0.78rem;" id="lbl-preview-destination">-</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+
+
+                                <!-- Route Banner -->
+                                <div id="lbl-preview-route-banner" style="display: flex; align-items: center; gap: 10px; background: linear-gradient(90deg, rgba(16,185,129,0.1), rgba(239,68,68,0.1)); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; padding: 7px 14px; margin-bottom: 0;">
+                                    <i class="fas fa-map-marker-alt" style="color: #10b981; font-size: 0.85rem; flex-shrink: 0;"></i>
+                                    <span id="lbl-preview-route-origin" style="font-weight: 600; color: #065f46; font-size: 0.78rem;">-</span>
+                                    <div style="flex: 1; height: 2px; background: linear-gradient(90deg, #10b981, #6366f1, #ef4444); border-radius: 2px; position: relative;">
+                                        <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 1px 8px; font-size: 0.6rem; color: #64748b; white-space: nowrap;">Pengantaran</div>
+                                    </div>
+                                    <span id="lbl-preview-route-destination" style="font-weight: 600; color: #991b1b; font-size: 0.78rem; text-align: right;">-</span>
+                                    <i class="fas fa-map-marker-alt" style="color: #ef4444; font-size: 0.85rem; flex-shrink: 0;"></i>
+                                </div>
+
+                                <!-- Dynamic Illustration Container -->
+                                <div id="truck-illustration-diagram" style="position: relative; min-height: 300px; margin: 12px 0 0 0; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 16px; background: #fafafa; display: flex; align-items: center; justify-content: space-between; page-break-inside: avoid; break-inside: avoid;">
+                                    <!-- Rendered dynamically by app.js -->
+                                </div>
+
+
+                            </div>
+                        </div>
+                        <div class="modal-footer no-print">
+                            <button type="button" class="btn btn-secondary" id="btn-cancel-truck-preview">Tutup</button>
+                            <button type="button" class="btn btn-primary" id="btn-download-truck-pdf">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Simpan PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CONTAINER SUBMISSIONS LIST -->
+            <section id="view-container-list" class="content-view">
+                <div class="panel">
+                    <div class="panel-title">Container Submissions Admin</div>
+                    <div class="admin-search-bar">
+                        <div class="admin-search-input">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); margin-right: 8px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="container-list-search" placeholder="Search by Booking / SI Reference, Vessel or Date..." oninput="filterContainerSubmissions()">
+                        </div>
+                        <button class="btn btn-outline" onclick="loadContainerSubmissions()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                            Refresh
+                        </button>
+                    </div>
+
+                    <div id="container-submissions-list">
+                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            Loading submissions...
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CONTAINER MOVEMENT DASHBOARD -->
+            <section id="view-movement-dashboard" class="content-view">
+                <div class="panel">
+                    <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <span>Voyages Movement Tracking</span>
+                        <button class="btn btn-primary btn-sm" onclick="openCreateVoyageModal()">
+                            <i class="fa fa-plus"></i> New Voyage Movement
+                        </button>
+                    </div>
+                    <div class="admin-search-bar" style="margin-bottom: 20px;">
+                        <div class="admin-search-input">
+                            <i class="fa fa-search" style="color: var(--text-muted); margin-right: 8px;"></i>
+                            <input type="text" id="voyage-search" placeholder="Search voyage movements..." oninput="filterMovementVoyages()">
+                        </div>
+                    </div>
+                    <div id="voyages-list-container" class="voyages-grid">
+                        <div style="grid-column: span 3; text-align: center; padding: 40px; color: var(--text-secondary);">
+                            <div class="spinner"></div> Loading voyages...
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CONTAINER MOVEMENT EDITOR -->
+            <section id="view-movement-editor" class="content-view">
+                <div class="sheet-editor-container">
+                    <div class="editor-toolbar" style="margin-bottom: 0; border-bottom: none;">
+                        <div class="toolbar-left" style="flex-wrap: wrap;">
+                            <button class="btn btn-outline btn-sm" onclick="switchView('movement-dashboard')">
+                                <i class="fa fa-arrow-left"></i> Back
+                            </button>
+                            <h3 id="active-voyage-name" style="font-size: 1.1rem; color: var(--color-primary); margin: 0 8px;">Voyage Editor</h3>
+                            <span id="active-voyage-date-label" style="font-size: 0.8rem; color: var(--text-secondary); margin-right: 12px;"></span>
+                            <button class="btn btn-success btn-sm" onclick="saveMovementData()">
+                                <i class="fa fa-save"></i> Save Changes
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="addNewRow()">
+                                <i class="fa fa-plus"></i> Add Row
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="deleteSelectedRows()" id="btn-delete-selected" style="display: none; color: var(--color-danger); border-color: var(--color-danger);">
+                                <i class="fa fa-minus"></i> Delete Selected
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="clearGrid()" style="color: var(--color-danger); border-color: rgba(239,68,68,0.3);">
+                                <i class="fa fa-trash"></i> Clear All
+                            </button>
+                        </div>
+                        <div class="toolbar-right">
+                            <div class="excel-btn-wrapper">
+                                <button class="btn btn-primary btn-sm" style="background-color: #15803d; border-color: #15803d;">
+                                    <i class="fa fa-file-excel"></i> Import Excel
+                                </button>
+                                <input type="file" id="excel-file-input" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="exportToExcel()" style="color: #60a5fa; border-color: #60a5fa;">
+                                <i class="fa fa-download"></i> Download Excel
+                            </button>
+                            <div class="search-box">
+                                <i class="fa fa-filter" style="color: var(--text-muted); margin-right: 8px; font-size: 0.75rem;"></i>
+                                <input type="text" id="grid-search" placeholder="Filter rows in grid..." oninput="filterGridRows()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spreadsheet Table -->
+                    <div class="grid-outer-wrapper" id="grid-wrapper">
+                        <div id="drag-overlay" class="drag-overlay">
+                            <i class="fa fa-cloud-upload-alt" style="margin-right: 12px;"></i> Drop Excel file here to parse!
+                        </div>
+                        <table class="grid-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-action"><input type="checkbox" id="check-all-rows" onchange="toggleSelectAllRows(this)"></th>
+                                    <th class="col-no">No</th>
+                                    <th class="col-port">Port</th>
+                                    <th class="col-pol">POL</th>
+                                    <th class="col-mlo">MLO</th>
+                                    <th class="col-size">Size</th>
+                                    <th class="col-cntr">Cntr Num</th>
+                                    <th class="col-shipper">Shipper In</th>
+                                    <th class="col-consignee">Consignee In</th>
+                                    <th class="col-bl">B/L Number</th>
+                                    <th class="col-status">Status In</th>
+                                    <th class="col-vessel">Vessel In</th>
+                                    <th class="col-date">Loaded In</th>
+                                    <th class="col-date">Discharge</th>
+                                    <th class="col-date">Gate Out</th>
+                                    <th class="col-date">Depot In</th>
+                                    <th class="col-vessel">Depot</th>
+                                    <th class="col-condition">Condition</th>
+                                    <th class="col-date">Depot Out</th>
+                                    <th class="col-date">Gate In CY</th>
+                                    <th class="col-shipper">Shipper Out</th>
+                                    <th class="col-consignee">Consignee Out</th>
+                                    <th class="col-status">Status Out</th>
+                                    <th class="col-vessel">Vessel Out</th>
+                                    <th class="col-date">Loaded Out</th>
+                                    <th class="col-port">POD</th>
+                                </tr>
+                            </thead>
+                            <tbody id="grid-body">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="grid-footer-summary">
+                        <div>
+                            <span>Total Rows: <strong id="grid-stat-total">0</strong></span>
+                            <span style="margin-left: 20px;">Laden: <strong id="grid-stat-laden">0</strong></span>
+                            <span style="margin-left: 20px;">Empty: <strong id="grid-stat-empty">0</strong></span>
+                        </div>
+                        <div>
+                            <i class="fa fa-info-circle"></i> Tip: You can copy cells in Excel and paste directly (Ctrl+V) into any grid input!
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- DOCUMENT PRINT LAYOUT TEMPLATES (Used during print & preview) -->
+    <!-- These are detached from the app structure and placed in print view -->
+    
+    <div id="print-layout-template" style="display: none;">
+        
+        <!-- PAGE 1: BILL OF LADING FRONT -->
+        <div class="bl-page page-1">
+            <div class="bl-outer-border">
+                
+                <!-- Title Header Bar -->
+                <div class="bl-title-section">
+                    <div class="bl-title-left">
+                        <h2 id="p-doc_type">BILL OF LADING</h2>
+                        <span>FOR COMBINED TRANSPORT SHIPMENT OR PORT TO PORT SHIPMENT</span>
+                    </div>
+                    <div class="bl-title-right">
+                        <span>Page 1 of 1</span>
+                    </div>
+                </div>
+
+                <!-- Main Grid Layout -->
+                <div class="bl-grid-body">
+                    
+                    <!-- Left Column Section -->
+                    <div class="bl-left-col">
+                        
+                        <!-- Booking & BL No Row -->
+                        <div class="bl-row flex-row border-bottom">
+                            <div class="bl-box width-50 border-right">
+                                <label>Booking No.</label>
+                                <div class="val text-bold" id="p-booking_no"></div>
+                            </div>
+                            <div class="bl-box width-50">
+                                <label>Bill of Lading No.</label>
+                                <div class="val text-bold" id="p-bl_no"></div>
+                            </div>
+                        </div>
+
+                        <!-- Shipper Box -->
+                        <div class="bl-box bl-box-tall border-bottom">
+                            <label>Shipper / Exporter (Complete name and address)</label>
+                            <div class="val text-pre-wrap" id="p-shipper"></div>
+                        </div>
+
+                        <!-- Consignee Box -->
+                        <div class="bl-box bl-box-tall border-bottom">
+                            <label>Consignee (not negotiable unless consigned to order)</label>
+                            <div class="val text-pre-wrap" id="p-consignee"></div>
+                        </div>
+
+                        <!-- Notify Party Box -->
+                        <div class="bl-box bl-box-tall">
+                            <label>Notify Party (Complete name and address)</label>
+                            <div class="val text-pre-wrap" id="p-notify_party"></div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column Section -->
+                    <div class="bl-right-col border-left">
+                        
+                        <!-- Logo Header Section -->
+                        <div class="bl-company-header border-bottom">
+                            <div class="bl-logo-img-box">
+                                <img src="logo.jpg" alt="Company Logo" class="bl-logo-img" id="p-logo">
+                            </div>
+                            <div class="bl-company-name-box">
+                                <div class="bl-company-name" id="p-company_name">PT. PUTERA UTAMA LAUTAN</div>
+                                <div class="bl-original">ORIGINAL</div>
+                            </div>
+                        </div>
+
+                        <!-- Legal disclaimer text -->
+                        <div class="bl-disclaimer border-bottom">
+                            <p>RECEIVED by the Carrier the Goods as specified above in apparent good order and condition unless otherwise stated, to be transported to such place as agreed authorised or permitted herein and subject to all the terms and conditions appearing on the front and reverse of this Bill of Lading to which the Merchant agrees by accepting this Bill of Lading, any local privileges and customs notwithstanding.</p>
+                            <p>The Particulars given above as stated by the shipper and weight, measure, quality condition, contents and value of the Goods are unknown to the Carrier.</p>
+                            <p>In WITNESS whereof one (1) original Bill of Lading has been signed if not otherwise stated above, the same being accomplished the other(s), if any to be void, if required by the Carrier one (1) original Bill of Lading must be surrendered duly endorsed in exchange for the Goods or delivery order.</p>
+                            
+                            <div class="bl-clause">
+                                <div class="bl-clause-title">JURISDICTION AND LAW CLAUS</div>
+                                <p id="p-clause_text"></p>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Apply To Box -->
+                        <div class="bl-box bl-box-tall">
+                            <label>For delivery of goods please apply to:</label>
+                            <div class="val text-pre-wrap" id="p-delivery_agent"></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Vessel & Voyage / Pre-Carriage Row -->
+                <div class="bl-row flex-row border-top border-bottom">
+                    <div class="bl-box flex-3 border-right">
+                        <label>Pre-Carriage</label>
+                        <div class="val" id="p-pre_carriage"></div>
+                    </div>
+                    <div class="bl-box flex-2 border-right">
+                        <label>Ocean Vessel</label>
+                        <div class="val" id="p-ocean_vessel"></div>
+                    </div>
+                    <div class="bl-box flex-2">
+                        <label>Voy. no.</label>
+                        <div class="val" id="p-voy_no"></div>
+                    </div>
+                </div>
+
+                <!-- Receipt & Load & Discharge & Delivery Row -->
+                <div class="bl-row flex-row border-bottom font-condensed">
+                    <div class="bl-box flex-1 border-right">
+                        <label>Place of Receipt</label>
+                        <div class="val" id="p-place_of_receipt"></div>
+                    </div>
+                    <div class="bl-box flex-1 border-right">
+                        <label>Port of Loading</label>
+                        <div class="val" id="p-port_of_loading"></div>
+                    </div>
+                    <div class="bl-box flex-1 border-right">
+                        <label>Port of Discharge</label>
+                        <div class="val" id="p-port_of_discharge"></div>
+                    </div>
+                    <div class="bl-box flex-1">
+                        <label>Place of Delivery</label>
+                        <div class="val" id="p-place_of_delivery"></div>
+                    </div>
+                </div>
+
+                <!-- Cargo Details Table Header -->
+                <div class="bl-table-header flex-row border-bottom">
+                    <div class="col-containers border-right text-center">Container No. and Seal No.<br>Marks & Nos.</div>
+                    <div class="col-packages border-right text-center">Quantity and<br>Kind Of Packges</div>
+                    <div class="col-desc border-right text-center">Description of Goods</div>
+                    <div class="col-measure text-center">Measurement (M3)<br>Gross Weight (KGS)</div>
+                </div>
+
+                <!-- Cargo Details Table Body -->
+                <div class="bl-table-body flex-row">
+                    <div class="col-containers border-right text-pre-wrap font-monospace" id="p-cargo_containers"></div>
+                    <div class="col-packages border-right text-pre-wrap text-center" id="p-cargo_quantity"></div>
+                    <div class="col-desc border-right text-pre-wrap" id="p-cargo_description"></div>
+                    <div class="col-measure text-pre-wrap text-right" id="p-cargo_measurement"></div>
+                </div>
+
+                <!-- Freight Section -->
+                <div class="bl-freight-header flex-row border-top border-bottom">
+                    <div class="col-f-charges border-right"><label>FREIGHT and CHARGES</label></div>
+                    <div class="col-f-rev border-right text-center"><label>Revenue Tons</label></div>
+                    <div class="col-f-rate border-right text-center"><label>Rate</label></div>
+                    <div class="col-f-per border-right text-center"><label>Per</label></div>
+                    <div class="col-f-prepaid border-right text-center"><label>Prepaid</label></div>
+                    <div class="col-f-collect text-center"><label>Collect</label></div>
+                </div>
+
+                <!-- Freight Content Row -->
+                <div class="bl-freight-body flex-row border-bottom">
+                    <div class="col-f-charges border-right" id="p-freight_charges"></div>
+                    <div class="col-f-rev border-right text-center" id="p-revenue_tons"></div>
+                    <div class="col-f-rate border-right text-center" id="p-rate"></div>
+                    <div class="col-f-per border-right text-center" id="p-per"></div>
+                    <div class="col-f-prepaid border-right text-center" id="p-prepaid"></div>
+                    <div class="col-f-collect text-center" id="p-collect"></div>
+                </div>
+
+                <!-- Footer Box Row 1 -->
+                <div class="bl-row flex-row border-bottom">
+                    <div class="bl-box flex-3 border-right">
+                        <label>Ex. Rate</label>
+                        <div class="val" id="p-ex_rate"></div>
+                    </div>
+                    <div class="bl-box flex-2 border-right">
+                        <label>Prepaid at</label>
+                        <div class="val" id="p-prepaid_at"></div>
+                    </div>
+                    <div class="bl-box flex-2 border-right">
+                        <label>Payable at</label>
+                        <div class="val" id="p-payable_at"></div>
+                    </div>
+                    <div class="bl-box flex-3">
+                        <label>Place and date of issue</label>
+                        <div class="val" id="p-place_date_issue"></div>
+                    </div>
+                </div>
+
+                <!-- Footer Box Row 2 -->
+                <div class="bl-row flex-row">
+                    <div class="bl-box flex-3 border-right">
+                        <label>MOVEMENT</label>
+                        <div class="val" id="p-movement"></div>
+                    </div>
+                    <div class="bl-box flex-4 border-right">
+                        <label>No. of original B(s) / L</label>
+                        <div class="val text-center" id="p-no_of_original"></div>
+                    </div>
+                    <div class="bl-box flex-3 signature-box">
+                        <label>Signed on behalf of</label>
+                        <div class="signature-title" id="p-signed_on_behalf"></div>
+                        <div class="signature-line"></div>
+                        <div class="signature-note">As Carrier</div>
+                        <img src="ttd_putera_0.png" alt="Signature & Stamp" class="signature-image" id="p-signature-img" style="display: none;">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- PAGE 2: TERMS AND CONDITIONS (STATIC BACK PAGE) -->
+        <div class="bl-page page-2 page-break-before">
+            <div class="terms-container">
+                <div class="terms-title">LADING BILL TERMS AND CONDITIONS</div>
+                <div class="terms-grid">
+                    
+                    <!-- COLUMN 1 -->
+                    <div class="terms-col">
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">1. DEFINITIONS</span>
+                            <p>"Carrier" means the company stated on the front of this Bill of Lading as being the Carrier and on whose behalf this Bill of Lading has been signed.</p>
+                            <p>"Merchant" includes the shipper, the consignee, the receiver of the Goods, the holder of this Bill of Lading, any person owning or entitled to the possession of the Goods or this Bill of Lading, or any person acting on behalf of any such person.</p>
+                            <p>"Goods" includes the cargo supplied by the Merchant and includes any Container not supplied by or on behalf of the carrier.</p>
+                            <p>"Container" includes any container, trailer, transportable tank, lift van, flat, pallet or any similar article of transport used to consolidate goods.</p>
+                            <p>"Carriage" means the whole of the operations and services undertaken or performed by or on behalf of the Carrier in respect of the goods.</p>
+                            <p>"Combined Transport" arises where the Carriage called for by this Bill of Lading is not a Port to Port Shipment.</p>
+                            <p>"Port to Port Shipment" arises where the Place of Receipt and the Place of Delivery are not indicated on the front of this Bill of Lading or if both the Place of Receipt and the Place of Delivery indicated are ports and the Bill of Lading does not specify any place or spot within the area of the port so nominated.</p>
+                            <p>"Hague Rules" means the provisions of the International Convention for Unification of certain Rules relating to Bills of Lading signed at Brussels on 25th August 1924.</p>
+                            <p>"COGSA" means the Carriage of Goods by Sea Act of the United States or Canada.</p>
+                            <p>"Charges" includes freight and all expenses and money obligations incurred and payable by the Merchant.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">2. CARRIER'S TARIFF</span>
+                            <p>The provisions of the Carrier's applicable Tariff, if any, are incorporated herein. Copies of such provisions are obtainable from the Carrier or his agents upon request. In the case of inconsistency between this Bill of Lading and the applicable Tariff, this Bill of Lading shall prevail.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">3. WARRANTY</span>
+                            <p>The Merchant warrants that in agreeing to the terms hereof he is or is the agent of and has the authority of the person owning or entitled to the possession of the Goods and this Bill of Lading.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">4. NEGOTIABILITY AND TITLE TO THE GOODS</span>
+                            <p>(1) This Bill of Lading shall be non-negotiable unless made out "to order", in which event it shall be negotiable and constitute title to the Goods.</p>
+                            <p>(2) This Bill of Lading shall be prima facie evidence of the taking in charge by the Carrier of the Goods as herein described.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">5. RIGHTS AND IMMUNITIES FOR THE CARRIER AND AGENTS</span>
+                            <p>(1) The Carrier shall be entitled to sub-contract on any terms the whole or any part of the Carriage.</p>
+                            <p>(2) The Merchant undertakes that no claim or allegation shall be made against any person or vessel whatsoever other than the Carrier, including but not limited to the Carrier's servants or agents, independent contractors and sub-contractors, which imposes or attempts to impose any liability whatsoever in connection with the Goods or Carriage.</p>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 2 -->
+                    <div class="terms-col">
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">6. CARRIER'S RESPONSIBILITY</span>
+                            <p><strong>(1) CLAUSE PARAMOUNT:</strong> Subject to clause 13 below, this Bill of Lading shall have effect subject to the Hague Rules or any legislation making such Rules compulsorily applicable (such as COGSA) to this Bill of Lading. The Hague Rules (or COGSA if subject to US or Canadian law) shall apply to the carriage of Goods by inland waterways and reference to carriage by sea shall be deemed to include reference to inland waterways.</p>
+                            <p><strong>(2) PORT TO PORT SHIPMENT:</strong> The responsibility of the Carrier is limited to that part of the carriage from and during loading into the vessel up to and during discharge from the vessel, and the Carrier shall not be liable for any loss or damage whatsoever in respect of the goods before loading or after discharge, even if charged for the whole carriage.</p>
+                            <p><strong>(3) COMBINED TRANSPORT:</strong> Save as otherwise provided, the Carrier shall be liable for loss or damage to the Goods occurring from the time they are taken into charge until the time of delivery. If the stage of Carriage where the loss or damage occurred cannot be proved, the liability of the Carrier shall be determined in accordance with sub-clause 6(3)(A) and limited to US$2.00 per gross kilogram of the Goods lost or damaged, or their value, whichever is less.</p>
+                            <p><strong>(4) PACKAGE LIMITATION:</strong> Where the Hague Rules or COGSA apply, the Carrier's liability shall not exceed US$500 per package or shipping unit unless a higher value is declared by the Shipper and inserted on the front of this Bill of Lading and extra freight paid.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">7. MERCHANT'S RESPONSIBILITY</span>
+                            <p>(1) The description and particulars of the Goods set out on the face hereof are furnished by the Merchant, who warrants their accuracy. The Merchant shall comply with all customs, port and other regulations and bear all duties, taxes, and expenses incurred by reason of any incorrectness.</p>
+                            <p>(2) The Merchant shall defend, indemnify and hold harmless the Carrier against any loss, damage, claim, liability or expense arising from any breach of these warranties or from any cause in connection with the Goods for which the Carrier is not responsible.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">8. CONTAINERS</span>
+                            <p>(1) Goods may be stuffed by the Carrier in or on Containers and consolidated with other goods. If a Container has been stuffed by or on behalf of the Merchant, the Carrier shall not be liable for loss or damage to the Goods caused by the manner in which the Container has been stuffed, or the unsuitability of the Goods for container carriage, or the defective condition of the Container if supplied by the Merchant.</p>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3 -->
+                    <div class="terms-col">
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">9. TEMPERATURE CONTROLLED CARGO</span>
+                            <p>The Merchant undertakes not to tender for transportation any Goods which require temperature control without previously giving written notice of their nature and temperature range. The Carrier shall not be liable for loss or damage arising from defects, breakdown or stoppage of refrigeration machinery.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">10. INSPECTION OF GOODS</span>
+                            <p>The Carrier shall be entitled but under no obligation to open any Container or package at any time and inspect the Goods.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">11. MATTERS AFFECTING PERFORMANCE</span>
+                            <p>If the Carriage is affected by any hindrance, risk, delay, difficulty or disadvantage of any kind, the Carrier may, without notice, abandon the Carriage of Goods and place the Goods at the Merchant's disposal at any place which the Carrier may deem safe and convenient, whereupon responsibility ceases.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">12. METHODS AND ROUTE OF TRANSPORTATION</span>
+                            <p>The Carrier may at any time and without notice use any means of transport, storage, transshipment or carriage, and proceed by any route, speed or direction, which shall be deemed within the contractual carriage and not a deviation.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">13. DECK CARGO AND LIVESTOCK</span>
+                            <p>Goods may be stowed on or under deck. Goods carried on deck and livestock are carried without responsibility for loss or damage arising during carriage by sea, whether caused by unseaworthiness, negligence or any other cause.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">14. DELIVERY OF GOODS</span>
+                            <p>If delivery of the Goods is not taken by the Merchant at the time and place the Carrier is entitled to call upon him to take delivery, the Carrier may store the Goods ashore or afloat at the sole risk and expense of the Merchant, constituting due delivery.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">15. GENERAL AVERAGE & LIEN</span>
+                            <p>General Average shall be adjusted according to York-Antwerp Rules 1974. The Carrier shall have a lien on the Goods and documents for all sums due at any time and the right to sell the Goods to recover outstanding charges.</p>
+                        </div>
+                        <div class="terms-sec">
+                            <span class="terms-sec-title">16. JURISDICTION & LAW</span>
+                            <p>This Bill of Lading is governed by the laws of Indonesia. All disputes arising hereunder shall be determined exclusively by the courts of Indonesia.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    </script>
+
+    <!-- Floating Edit Button -->
+    <button id="floating-edit-btn" class="floating-edit-btn" style="display: none; position: absolute;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+        Edit in Form
+    </button>
+
+    <!-- MODAL: UPLOAD PROFORMA/INVOICE -->
+    <div id="kas-upload-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Unggah Berkas Kas Operasional</h3>
+                <button type="button" class="btn-close-modal" onclick="closeKasUploadModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="dropzone" id="kas-dropzone">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <p>Seret & taruh berkas PDF, JPG, atau PNG di sini</p>
+                    <span>atau klik untuk memilih berkas</span>
+                    <input type="file" id="kas-file-input" accept="application/pdf,image/jpeg,image/png" style="display: none;">
+                </div>
+                <div id="kas-upload-progress" class="upload-progress" style="display: none;">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="kas-progress-bar" style="width: 0%;"></div>
+                    </div>
+                    <p id="kas-progress-status">Mengunggah dan mengekstrak data OCR...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: KAS OPERASIONAL EDITOR -->
+    <div id="kas-editor-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card" style="max-width: 900px; width: 90%;">
+            <div class="modal-header">
+                <h3 id="kas-modal-title">Input Data Kas Operasional</h3>
+                <button type="button" class="btn-close-modal" onclick="closeKasEditorModal()">×</button>
+            </div>
+            <form id="kas-editor-form">
+                <input type="hidden" id="kas-id" value="0">
+                <input type="hidden" id="kas-file-path" value="">
+                
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding: 24px;">
+                    <!-- Alert OCR info if applicable -->
+                    <div id="ocr-alert-info" style="display: none; background-color: rgba(30, 144, 255, 0.1); border-left: 4px solid var(--text-link); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 20px; font-size: 0.85rem;">
+                        <strong>💡 Data Hasil Ekstraksi Otomatis</strong>: Silakan periksa kembali kecocokan nilai form dengan dokumen asli sebelum menyimpan.
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                        <div class="form-group">
+                            <label for="kas-tgl-cetak">Tanggal (Tgl. Cetak/Transaksi) *</label>
+                            <input type="datetime-local" id="kas-tgl-cetak" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-no-proforma">No. Proforma / Invoice Pelindo</label>
+                            <input type="text" id="kas-no-proforma" placeholder="Contoh: RCL268080000068">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-keterangan">Keterangan *</label>
+                            <input type="text" id="kas-keterangan" required placeholder="Contoh: Pembayaran Receiving 1x20' (BAI)">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-no-count">No. Count (Kontainer)</label>
+                            <input type="text" id="kas-no-count" placeholder="Contoh: JHSU2635662, CIMU0524920">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-debit">D (Debit / Setoran) (Rp)</label>
+                            <input type="number" id="kas-debit" min="0" placeholder="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-kredit">K (Kredit / Pembayaran) (Rp)</label>
+                            <input type="number" id="kas-kredit" min="0" placeholder="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-keterangan-tambahan">Keterangan Tambahan / Catatan</label>
+                            <input type="text" id="kas-keterangan-tambahan" placeholder="Contoh: CEK FREE TIME USE 14 DAYS">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-kapal">Kapal / Voyage</label>
+                            <input type="text" id="kas-kapal" placeholder="Contoh: WGM 256 T - 030N">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-nama-tertagih">Nama Tertagih</label>
+                            <input type="text" id="kas-nama-tertagih" placeholder="Contoh: PUTERA UTAMA LAUTAN">
+                        </div>
+                        <div class="form-group">
+                            <label for="kas-kode-bayar">Kode Bayar</label>
+                            <input type="text" id="kas-kode-bayar" placeholder="Contoh: 12607330014973">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2; display: flex; align-items: center; margin-top: 20px;">
+                            <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+                                <input type="checkbox" id="kas-is-ho" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span>Bayar Lewat HO / Exclude dari Perhitungan Saldo</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Items / Activity Table -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="font-size: 0.95rem; text-transform: uppercase; color: var(--text-secondary); margin: 0;">Daftar Aktifitas (Biaya)</h4>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-kas-item" style="padding: 4px 8px; font-size: 0.8rem;">+ Tambah Baris</button>
+                        </div>
+                        <div style="overflow-x: auto; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                            <table class="data-table" id="kas-editor-items-table" style="min-width: 600px;">
+                                <thead>
+                                    <tr>
+                                        <th>Aktifitas</th>
+                                        <th>S/T/S</th>
+                                        <th style="width: 70px;">Box</th>
+                                        <th style="width: 70px;">Item</th>
+                                        <th>Tarif (Rp)</th>
+                                        <th>Total (Rp)</th>
+                                        <th style="width: 50px;" class="text-center">Hapus</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kas-editor-items-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Petikemas / Containers Table -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="font-size: 0.95rem; text-transform: uppercase; color: var(--text-secondary); margin: 0;">Detil Petikemas</h4>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-kas-container" style="padding: 4px 8px; font-size: 0.8rem;">+ Tambah Baris</button>
+                        </div>
+                        <div style="overflow-x: auto; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                            <table class="data-table" id="kas-editor-containers-table" style="min-width: 600px;">
+                                <thead>
+                                    <tr>
+                                        <th>No. Petikemas</th>
+                                        <th>S/T/S</th>
+                                        <th>Estimasi Masuk</th>
+                                        <th>Total (Rp)</th>
+                                        <th style="width: 50px;" class="text-center">Hapus</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kas-editor-containers-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Totals Section -->
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                        <div style="width: 300px; display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; align-items: center;">
+                            <label style="font-weight: 500; font-size: 0.85rem;">Total Box:</label>
+                            <input type="number" id="kas-total-petikemas" value="0" readonly style="padding: 6px; text-align: right; background-color: rgba(255,255,255,0.03); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            
+                            <label style="font-weight: 500; font-size: 0.85rem;">Sub-Total (Rp):</label>
+                            <input type="number" id="kas-sub-total" value="0" style="padding: 6px; text-align: right; background-color: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            
+                            <label style="font-weight: 500; font-size: 0.85rem;">PPN (Rp):</label>
+                            <input type="number" id="kas-ppn" value="0" style="padding: 6px; text-align: right; background-color: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            
+                            <label style="font-weight: 500; font-size: 0.85rem;">Materai (Rp):</label>
+                            <input type="number" id="kas-materai" value="0" style="padding: 6px; text-align: right; background-color: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            
+                            <label style="font-weight: 700; font-size: 0.9rem; color: var(--text-link);">Grand Total (Rp):</label>
+                            <input type="number" id="kas-grand-total" value="0" style="padding: 6px; text-align: right; font-weight: 700; border: 1px solid var(--text-link); background-color: var(--bg-card); color: var(--text-primary);">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color);">
+                    <button type="button" class="btn btn-secondary" onclick="closeKasEditorModal()">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Transaksi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FULL IMAGE PREVIEW MODAL -->
+    <div id="image-viewer-modal" class="modal-overlay" style="display: none; z-index: 2000;">
+        <div class="modal-card" style="max-width: 800px; width: 90%; background: none; border: none; box-shadow: none;">
+            <div style="text-align: right; margin-bottom: 10px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-close-image-viewer" style="background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 1rem; border-radius: 50%; width: 36px; height: 36px; padding: 0;">×</button>
+            </div>
+            <div style="background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.1);">
+                <img id="image-viewer-img" src="" style="max-width: 100%; max-height: 80vh; object-fit: contain; display: block;">
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MOVEMENT: CREATE VOYAGE MODAL -->
+    <div id="modal-create-voyage" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>New Voyage Movement</h3>
+                <button class="modal-close" type="button" onclick="closeCreateVoyageModal()">&times;</button>
+            </div>
+            <form id="form-create-voyage" onsubmit="handleCreateVoyage(event)">
+                <div class="form-group">
+                    <label for="new-voyage-name">Voyage Name *</label>
+                    <input type="text" id="new-voyage-name" required placeholder="e.g. Movement V.031N">
+                </div>
+                <div class="form-group">
+                    <label for="new-voyage-date">Date / Year</label>
+                    <input type="text" id="new-voyage-date" placeholder="e.g. 13/07/2026">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeCreateVoyageModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Voyage</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MOVEMENT: EDIT VOYAGE MODAL -->
+    <div id="modal-edit-voyage" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Rename Voyage Movement</h3>
+                <button class="modal-close" type="button" onclick="closeEditVoyageModal()">&times;</button>
+            </div>
+            <form id="form-edit-voyage" onsubmit="handleEditVoyage(event)">
+                <input type="hidden" id="edit-voyage-id">
+                <div class="form-group">
+                    <label for="edit-voyage-name">Voyage Name *</label>
+                    <input type="text" id="edit-voyage-name" required placeholder="e.g. Movement V.031N">
+                </div>
+                <div class="form-group">
+                    <label for="edit-voyage-date">Date / Year</label>
+                    <input type="text" id="edit-voyage-date" placeholder="e.g. 13/07/2026">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeEditVoyageModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Voyage</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Script imports -->
+    <script src="app.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bhumi Docs Workspace</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="logo-bsm.png" alt="BSM logo" class="brand-logo" />
+          <div>
+            <p class="eyebrow">Local Ops Workspace</p>
+            <h1>Bhumi Docs</h1>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="loadSampleBtn" class="btn btn-secondary" type="button">Load sample</button>
+          <button id="saveDraftBtn" class="btn btn-primary" type="button">Save draft</button>
+          <button id="saveCloudBtn" class="btn btn-primary" type="button">Save to cloud</button>
+          <button id="loadCloudBtn" class="btn btn-secondary" type="button">Load latest cloud</button>
+          <button id="resetBtn" class="btn btn-ghost" type="button">Reset</button>
+          <button id="exportBtn" class="btn btn-ghost" type="button">Export JSON</button>
+        </div>
+
+        <section class="auth-card">
+          <div class="section-head">
+            <h2>Supabase Login</h2>
+            <button id="logoutBtn" class="btn btn-ghost" type="button">Logout</button>
+          </div>
+          <p id="authStatus" class="status-text">Checking session...</p>
+          <form id="authForm" class="auth-form">
+            <label>Email
+              <input id="authEmail" type="email" autocomplete="username" value="ops-demo@bhumidocs.app" />
+            </label>
+            <label>Password
+              <input id="authPassword" type="password" autocomplete="current-password" value="BhumiDocs#2026" />
+            </label>
+            <div class="actions">
+              <button id="loginBtn" class="btn btn-primary" type="button">Login</button>
+              <button id="registerBtn" class="btn btn-secondary" type="button">Register demo user</button>
+            </div>
+          </form>
+          <p class="status-note">
+            Demo credential target: <code>ops-demo@bhumidocs.app</code> / <code>BhumiDocs#2026</code>
+          </p>
+          <p class="status-note">
+            Saat saya cek pada 23 July 2026, endpoint signup Supabase mengembalikan rate limit <code>429</code>, jadi bila register gagal, tunggu sebentar lalu ulangi dari tombol di atas.
+          </p>
+        </section>
+
+        <form id="docForm" class="form-grid">
+          <section class="form-card">
+            <h2>Shipment</h2>
+            <label>Document batch
+              <input name="documentBatch" />
+            </label>
+            <label>Shipping instruction no
+              <input name="siNumber" />
+            </label>
+            <label>Bill of lading no
+              <input name="blNumber" />
+            </label>
+            <label>Invoice no
+              <input name="invoiceNumber" />
+            </label>
+            <label>Issue date
+              <input name="issueDate" type="date" />
+            </label>
+            <label>ETD
+              <input name="etd" type="date" />
+            </label>
+            <label>ETA
+              <input name="eta" type="date" />
+            </label>
+            <label>Shipped on board
+              <input name="shippedOnBoard" type="date" />
+            </label>
+            <label>Booking no
+              <input name="bookingNumber" />
+            </label>
+            <label>Freight term
+              <select name="freightTerm">
+                <option value="Collect">Collect</option>
+                <option value="Prepaid">Prepaid</option>
+              </select>
+            </label>
+            <label>Trade term
+              <input name="tradeTerm" placeholder="FOB / CFR / CIF" />
+            </label>
+          </section>
+
+          <section class="form-card">
+            <h2>Route</h2>
+            <label>Place of loading
+              <input name="placeOfLoading" />
+            </label>
+            <label>Port of loading
+              <input name="portOfLoading" />
+            </label>
+            <label>Port of discharge
+              <input name="portOfDischarge" />
+            </label>
+            <label>Final destination
+              <input name="finalDestination" />
+            </label>
+            <label>Vessel
+              <input name="vessel" />
+            </label>
+            <label>Voyage
+              <input name="voyage" />
+            </label>
+            <label>Connecting vessel
+              <input name="connectingVessel" />
+            </label>
+            <label>Stuffing on
+              <input name="stuffingDate" type="date" />
+            </label>
+            <label>Detention note
+              <input name="detentionNote" />
+            </label>
+          </section>
+
+          <section class="form-card">
+            <h2>Parties</h2>
+            <label>Shipper
+              <textarea name="shipper" rows="4"></textarea>
+            </label>
+            <label>Consignee
+              <textarea name="consignee" rows="4"></textarea>
+            </label>
+            <label>Notify party
+              <textarea name="notifyParty" rows="4"></textarea>
+            </label>
+            <label>Carrier / agent
+              <textarea name="carrier" rows="4"></textarea>
+            </label>
+            <label>Attention
+              <input name="attention" />
+            </label>
+          </section>
+
+          <section class="form-card">
+            <h2>Invoice</h2>
+            <label>Bill to
+              <textarea name="billTo" rows="4"></textarea>
+            </label>
+            <label>Payment note
+              <textarea name="paymentNote" rows="3"></textarea>
+            </label>
+            <label>Bank name
+              <input name="bankName" />
+            </label>
+            <label>Bank account no
+              <input name="bankAccountNumber" />
+            </label>
+            <label>Bank account name
+              <input name="bankAccountName" />
+            </label>
+            <label>Signer name
+              <input name="signerName" />
+            </label>
+            <label>Signer title
+              <input name="signerTitle" />
+            </label>
+          </section>
+        </form>
+
+        <section class="table-card">
+          <div class="section-head">
+            <h2>Containers</h2>
+            <button id="addContainerBtn" class="btn btn-secondary" type="button">Add row</button>
+          </div>
+          <div id="containersTable"></div>
+        </section>
+
+        <section class="table-card">
+          <div class="section-head">
+            <h2>Cargo Summary</h2>
+            <button id="addCargoBtn" class="btn btn-secondary" type="button">Add row</button>
+          </div>
+          <div id="cargoTable"></div>
+        </section>
+
+        <section class="table-card">
+          <div class="section-head">
+            <h2>Invoice Items</h2>
+            <button id="addInvoiceItemBtn" class="btn btn-secondary" type="button">Add row</button>
+          </div>
+          <div id="invoiceItemsTable"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-head">
+          <div>
+            <p class="eyebrow">Preview & Print</p>
+            <h2>Generated documents</h2>
+          </div>
+          <div class="toolbar">
+            <div class="tab-group" id="tabGroup">
+              <button class="tab is-active" data-tab="si" type="button">Shipping Instruction</button>
+              <button class="tab" data-tab="bl" type="button">Bill of Lading</button>
+              <button class="tab" data-tab="invoice" type="button">Invoice</button>
+            </div>
+            <button id="printBtn" class="btn btn-primary" type="button">Print active</button>
+          </div>
+        </header>
+
+        <section class="cloud-card">
+          <div class="section-head">
+            <h2>Cloud Shipments</h2>
+            <button id="refreshCloudBtn" class="btn btn-ghost" type="button">Refresh list</button>
+          </div>
+          <p id="cloudStatus" class="status-text">Login dulu untuk memuat data dari Supabase.</p>
+          <div id="cloudList" class="cloud-list"></div>
+        </section>
+
+        <section class="preview-wrap">
+          <article id="preview-si" class="doc-preview is-active"></article>
+          <article id="preview-bl" class="doc-preview"></article>
+          <article id="preview-invoice" class="doc-preview"></article>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
