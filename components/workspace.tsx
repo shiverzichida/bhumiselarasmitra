@@ -6,14 +6,16 @@ import logoImage from "@/logo-bsm.png";
 import styles from "./workspace.module.css";
 import { formatCurrency, formatDateLong, safeFileName } from "@/lib/format";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { mergeWithSample, sampleDraft, STORAGE_KEY } from "@/lib/sample-data";
+import { mergeWithSample, sampleDraft, sampleStandaloneInvoice, sampleCustomers, STORAGE_KEY, INVOICE_STORAGE_KEY, CUSTOMERS_STORAGE_KEY } from "@/lib/sample-data";
 import { mapShipmentToState, mapStateToShipmentPayload } from "@/lib/shipment-mappers";
-import type { CargoRow, ContainerRow, InvoiceItemRow, ShipmentDraft, ShipmentListItem } from "@/lib/types";
+import type { CargoRow, ContainerRow, CustomerMaster, InvoiceItemRow, ShipmentDraft, ShipmentListItem, StandaloneInvoice } from "@/lib/types";
+import { StandaloneInvoiceModule } from "@/components/standalone-invoice";
 
-type ActiveView = "dashboard" | "editor" | "history";
-type EditorTab = "general" | "parties" | "routing" | "cargo" | "billing" | "preview";
+type ActiveView = "dashboard" | "editor" | "invoice" | "history";
+type EditorTab = "general" | "parties" | "routing" | "cargo" | "preview";
 type ActiveDoc = "si" | "bl" | "invoice";
 
+const SAVED_INVOICES_KEY = "bhumi-docs-saved-invoices-list-v1";
 const supabase = getSupabaseBrowserClient();
 const db = supabase as any;
 
@@ -33,6 +35,12 @@ export function Workspace() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  // Standalone Invoice & Customer States
+  const [standaloneInvoice, setStandaloneInvoice] = useState<StandaloneInvoice>(sampleStandaloneInvoice);
+  const [customers, setCustomers] = useState<CustomerMaster[]>(sampleCustomers);
+  const [savedInvoices, setSavedInvoices] = useState<StandaloneInvoice[]>([]);
+
+
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -43,12 +51,42 @@ export function Workspace() {
       }
     }
 
+    const savedInv = window.localStorage.getItem(INVOICE_STORAGE_KEY);
+    if (savedInv) {
+      try {
+        setStandaloneInvoice(JSON.parse(savedInv));
+      } catch {
+        setStandaloneInvoice(sampleStandaloneInvoice);
+      }
+    }
+
+    const savedCust = window.localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+    if (savedCust) {
+      try {
+        setCustomers(JSON.parse(savedCust));
+      } catch {
+        setCustomers(sampleCustomers);
+      }
+    }
+
+    const savedList = window.localStorage.getItem(SAVED_INVOICES_KEY);
+    if (savedList) {
+      try {
+        setSavedInvoices(JSON.parse(savedList));
+      } catch {
+        setSavedInvoices([sampleStandaloneInvoice]);
+      }
+    } else {
+      setSavedInvoices([sampleStandaloneInvoice]);
+    }
+
     if (!supabase) {
       setAuthStatus("Supabase belum dikonfigurasi.");
       setCloudStatus("Tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.");
       router.replace("/login");
       return;
     }
+
 
     void supabase.auth.getSession().then(({ data, error }) => {
       if (error) {
@@ -187,6 +225,56 @@ export function Workspace() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
     setCloudStatus("Draft saved locally.");
   }
+
+  function handleSaveStandaloneInvoice() {
+    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(standaloneInvoice));
+    
+    // Update or add to savedInvoices list
+    setSavedInvoices((prev) => {
+      const idx = prev.findIndex((i) => i.invoiceNumber === standaloneInvoice.invoiceNumber);
+      let updatedList;
+      if (idx >= 0) {
+        updatedList = prev.map((item, i) => (i === idx ? standaloneInvoice : item));
+      } else {
+        updatedList = [standaloneInvoice, ...prev];
+      }
+      window.localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(updatedList));
+      return updatedList;
+    });
+
+    setCloudStatus(`Invoice ${standaloneInvoice.invoiceNumber} berhasil disimpan.`);
+    alert(`Invoice ${standaloneInvoice.invoiceNumber} berhasil disimpan ke Rekap Invoice!`);
+  }
+
+  function handleLoadStandaloneInvoice(inv: StandaloneInvoice) {
+    setStandaloneInvoice(inv);
+    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(inv));
+  }
+
+  function handleNewStandaloneInvoice() {
+    const nextNo = `INV/${String(savedInvoices.length + 55).padStart(3, "0")}/BSM/INVVII/2026`;
+    const newInv: StandaloneInvoice = {
+      ...structuredClone(sampleStandaloneInvoice),
+      invoiceNumber: nextNo,
+      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date().toISOString().split("T")[0],
+    };
+    setStandaloneInvoice(newInv);
+    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(newInv));
+  }
+
+  function handleDeleteStandaloneInvoice(invNo: string) {
+    if (!confirm(`Hapus Invoice ${invNo} dari rekap?`)) return;
+    setSavedInvoices((prev) => {
+      const filtered = prev.filter((i) => i.invoiceNumber !== invNo);
+      window.localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(filtered));
+      return filtered;
+    });
+  }
+
+  useEffect(() => {
+    window.localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(customers));
+  }, [customers]);
 
   function loadSample() {
     setDraft(structuredClone(sampleDraft));
@@ -381,6 +469,11 @@ export function Workspace() {
             }}
             label="Create / Edit B/L"
           />
+          <SidebarButton
+            active={activeView === "invoice"}
+            onClick={() => setActiveView("invoice")}
+            label="Invoice Management"
+          />
           <SidebarButton active={activeView === "history"} onClick={() => setActiveView("history")} label="History Logs" />
         </nav>
 
@@ -394,14 +487,22 @@ export function Workspace() {
         <header className={styles.topBar}>
           <div>
             <h2 className={styles.pageTitle}>
-              {activeView === "dashboard" ? "Dashboard" : activeView === "editor" ? "Bill of Lading Editor" : "History Logs"}
+              {activeView === "dashboard"
+                ? "Dashboard"
+                : activeView === "editor"
+                  ? "Bill of Lading Editor"
+                  : activeView === "invoice"
+                    ? "Invoice Management (Spreadsheet Model)"
+                    : "History Logs"}
             </h2>
             <p className={styles.pageSubtitle}>
               {activeView === "dashboard"
                 ? "Monitor shipment drafts, status, and cargo document workflow."
                 : activeView === "editor"
-                  ? "Create, edit, review, and print B/L, SI, and Invoice in one workspace."
-                  : "Quick access to recent cloud shipments stored in Supabase."}
+                  ? "Create, edit, review, and print B/L and Shipping Instruction."
+                  : activeView === "invoice"
+                    ? "Kelola Invoice, Rekap Invoice, dan Customer Database terpisah presisi format Excel."
+                    : "Quick access to recent cloud shipments stored in Supabase."}
             </p>
           </div>
           <div className={styles.topBarRight}>
@@ -559,6 +660,20 @@ export function Workspace() {
               <p className={styles.panelNote}>Login sekarang memakai halaman terpisah di `/login` seperti aplikasi produksi.</p>
             </section>
           </section>
+        ) : activeView === "invoice" ? (
+          <section className={styles.viewSection}>
+            <StandaloneInvoiceModule
+              invoice={standaloneInvoice}
+              setInvoice={setStandaloneInvoice}
+              customers={customers}
+              setCustomers={setCustomers}
+              savedInvoices={savedInvoices}
+              onSaveInvoice={handleSaveStandaloneInvoice}
+              onLoadInvoice={handleLoadStandaloneInvoice}
+              onNewInvoice={handleNewStandaloneInvoice}
+              onDeleteInvoice={handleDeleteStandaloneInvoice}
+            />
+          </section>
         ) : activeView === "history" ? (
           <section className={styles.viewSection}>
             <section className={styles.panel}>
@@ -615,7 +730,6 @@ export function Workspace() {
                   ["parties", "Parties"],
                   ["routing", "Routing & Vessel"],
                   ["cargo", "Cargo & Containers"],
-                  ["billing", "Invoice & Payment"],
                   ["preview", "Preview"],
                 ].map(([value, label]) => (
                   <button
@@ -628,6 +742,7 @@ export function Workspace() {
                   </button>
                 ))}
               </div>
+
 
               {editorTab === "general" && (
                 <EditorGrid>
@@ -706,38 +821,10 @@ export function Workspace() {
                 </div>
               )}
 
-              {editorTab === "billing" && (
-                <div className={styles.editorStack}>
-                  <EditorGrid>
-                    <Field label="Bill to" multiline value={draft.billTo} onChange={(value) => updateField("billTo", value)} />
-                    <Field label="Payment note" multiline value={draft.paymentNote} onChange={(value) => updateField("paymentNote", value)} />
-                    <Field label="Bank name" value={draft.bankName} onChange={(value) => updateField("bankName", value)} />
-                    <Field label="Bank account no" value={draft.bankAccountNumber} onChange={(value) => updateField("bankAccountNumber", value)} />
-                    <Field label="Bank account name" value={draft.bankAccountName} onChange={(value) => updateField("bankAccountName", value)} />
-                    <Field label="Signer name" value={draft.signerName} onChange={(value) => updateField("signerName", value)} />
-                    <Field label="Signer title" value={draft.signerTitle} onChange={(value) => updateField("signerTitle", value)} />
-                  </EditorGrid>
-                  <EditableTable
-                    title="Invoice Items"
-                    actionLabel="Add Item"
-                    columns={[
-                      { key: "description", label: "Description" },
-                      { key: "quantity", label: "Qty" },
-                      { key: "unit", label: "Unit" },
-                      { key: "unitPrice", label: "Unit Price" },
-                    ]}
-                    rows={draft.invoiceItems}
-                    onAdd={() => addRow("invoiceItems")}
-                    onChange={(index, field, value) => updateArrayRow<InvoiceItemRow>("invoiceItems", index, field, value)}
-                    onDelete={(index) => removeRow("invoiceItems", index)}
-                  />
-                </div>
-              )}
-
               {editorTab === "preview" && (
                 <div className={styles.previewWorkspace}>
                   <div className={styles.previewControls}>
-                    {(["si", "bl", "invoice"] as ActiveDoc[]).map((doc) => (
+                    {(["si", "bl"] as ActiveDoc[]).map((doc) => (
                       <button
                         key={doc}
                         className={`${styles.tabButton} ${activeDoc === doc ? styles.tabActive : ""}`}

@@ -105,3 +105,95 @@ export function mergeWithSample(value?: Partial<ShipmentDraft> | null): Shipment
     invoiceItems: value?.invoiceItems?.length ? value.invoiceItems : structuredClone(sampleDraft.invoiceItems),
   };
 }
+
+export const INVOICE_STORAGE_KEY = "bhumi-docs-invoice-v1";
+export const CUSTOMERS_STORAGE_KEY = "bhumi-docs-customers-v1";
+
+export const sampleCustomers: import("./types").CustomerMaster[] = [
+  {
+    id: "cust-022",
+    customerId: "022",
+    customerName: "Ibu April",
+    companyName: "PT. Belirang Kalisari",
+    streetAddress: "Jl Karanggayam I 2A Surabaya 60136 Indonesia",
+    city: "Jawa Timur",
+    phone: "+62-812-7958-5758",
+  },
+  {
+    id: "cust-001",
+    customerId: "001",
+    customerName: "Bpk. Hendra",
+    companyName: "PT. Belirang Kalisari",
+    streetAddress: "Jl Karanggayam I 2A Surabaya 60136 Indonesia",
+    city: "Jawa Timur",
+    phone: "+62-812-7958-5758",
+  },
+  {
+    id: "cust-002",
+    customerId: "002",
+    customerName: "Bpk. Rahmat",
+    companyName: "PT. Tangguh Birawa Persada",
+    streetAddress: "Jl. Raya Industri No. 45",
+    city: "Jakarta Barat",
+    phone: "+62-811-9988-7766",
+  },
+  {
+    id: "cust-003",
+    customerId: "003",
+    customerName: "Ibu Siska",
+    companyName: "PT. Inti Jaya Elektronik",
+    streetAddress: "Kawasan Harco Mangga Dua Lt 3",
+    city: "Jakarta Pusat",
+    phone: "+62-813-1122-3344",
+  },
+  {
+    id: "cust-004",
+    customerId: "004",
+    customerName: "Bpk. Agus",
+    companyName: "PT. Toko Baru Avo",
+    streetAddress: "Jl. Veteran No. 12",
+    city: "Surabaya",
+    phone: "+62-815-5544-3322",
+  },
+  {
+    id: "cust-005",
+    customerId: "005",
+    customerName: "Bpk. Budi",
+    companyName: "PT. Ones Law Group",
+    streetAddress: "Sudirman Central Business District Tbk",
+    city: "Jakarta Selatan",
+    phone: "+62-812-9900-1122",
+  },
+];
+
+export const sampleStandaloneInvoice: import("./types").StandaloneInvoice = {
+  id: null,
+  invoiceNumber: "INV/054/BSM/INVVII/2025",
+  date: "2026-07-16",
+  dueDate: "2026-07-16",
+  customerId: "022",
+  customerName: "Ibu April",
+  companyName: "PT. Belirang Kalisari",
+  streetAddress: "Jl Karanggayam I 2A Surabaya 60136 Indonesia",
+  city: "Jawa Timur",
+  phone: "+62-812-7958-5758",
+  items: [
+    {
+      id: null,
+      description: "Biaya Ocean freight Door - Fio PT. Indah Kiat PRW 5 x 20GP all in",
+      quantity: "5",
+      unit: "20GP",
+      unitPrice: "16250000",
+    },
+  ],
+  discount: "0",
+  ppnRate: 11,
+  pphRate: 2,
+  otherAmount: "0",
+  bankCode: "014",
+  bankName: "BCA KCU Kramat Jaya",
+  bankAccountName: "BHUMI SELARAS MITRA",
+  bankAccountNumber: "414-2485-676",
+  signerName: "Ari Wahyudi",
+};
+

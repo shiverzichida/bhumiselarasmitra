@@ -186,3 +186,101 @@ create trigger shipments_set_updated_at
 before update on public.shipments
 for each row
 execute function public.set_updated_at();
+
+-- ========================================================
+-- TABEL CUSTOMERS MASTER (Master Pelanggan)
+-- ========================================================
+create table if not exists public.customers_master (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid default auth.uid(),
+  customer_id text not null,
+  customer_name text,
+  company_name text not null,
+  street_address text,
+  city text,
+  phone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.customers_master enable row level security;
+
+drop policy if exists "customers_master_owner_access" on public.customers_master;
+create policy "customers_master_owner_access"
+on public.customers_master
+for all
+to authenticated
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+-- ========================================================
+-- TABEL STANDALONE INVOICES (Modul Invoice Independen)
+-- ========================================================
+create table if not exists public.standalone_invoices (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid default auth.uid(),
+  invoice_number text not null,
+  date date,
+  due_date date,
+  customer_id text,
+  customer_name text,
+  company_name text,
+  street_address text,
+  city text,
+  phone text,
+  discount numeric(14,2) default 0,
+  ppn_rate numeric(5,2) default 11,
+  pph_rate numeric(5,2) default 2,
+  other_amount numeric(14,2) default 0,
+  bank_code text default '014',
+  bank_name text default 'BCA KCU Kramat Jaya',
+  bank_account_name text default 'BHUMI SELARAS MITRA',
+  bank_account_number text default '414-2485-676',
+  signer_name text default 'Ari Wahyudi',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.standalone_invoice_items (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.standalone_invoices(id) on delete cascade,
+  description text,
+  quantity numeric(12,2) default 1,
+  unit text,
+  unit_price numeric(14,2) default 0,
+  sort_order integer default 0
+);
+
+alter table public.standalone_invoices enable row level security;
+alter table public.standalone_invoice_items enable row level security;
+
+drop policy if exists "standalone_invoices_owner_access" on public.standalone_invoices;
+create policy "standalone_invoices_owner_access"
+on public.standalone_invoices
+for all
+to authenticated
+using (owner_id = auth.uid())
+with check (owner_id = auth.uid());
+
+drop policy if exists "standalone_invoice_items_owner_access" on public.standalone_invoice_items;
+create policy "standalone_invoice_items_owner_access"
+on public.standalone_invoice_items
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.standalone_invoices i
+    where i.id = standalone_invoice_items.invoice_id
+      and i.owner_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.standalone_invoices i
+    where i.id = standalone_invoice_items.invoice_id
+      and i.owner_id = auth.uid()
+  )
+);
+

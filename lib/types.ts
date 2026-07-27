@@ -74,3 +74,37 @@ export type ShipmentListItem = {
   issue_date: string | null;
   updated_at?: string | null;
 };
+
+export type CustomerMaster = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  companyName: string;
+  streetAddress: string;
+  city: string;
+  phone: string;
+};
+
+export type StandaloneInvoice = {
+  id: string | null;
+  invoiceNumber: string;
+  date: string;
+  dueDate: string;
+  customerId: string;
+  customerName: string;
+  companyName: string;
+  streetAddress: string;
+  city: string;
+  phone: string;
+  items: InvoiceItemRow[];
+  discount: string;
+  ppnRate: number; // e.g. 11 for 11%
+  pphRate: number; // e.g. 2 for 2%
+  otherAmount: string;
+  bankCode: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  signerName: string;
+};
+
