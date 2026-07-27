@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import logoImage from "@/logo-bsm.png";
-import ttdImage from "@/ttd.png";
+import ttdSignImage from "@/ttd bsm sign.png";
 import styles from "./workspace.module.css";
 import { formatCurrency, formatDateLong } from "@/lib/format";
 import type { CustomerMaster, InvoiceItemRow, StandaloneInvoice } from "@/lib/types";
@@ -135,7 +135,14 @@ export function StandaloneInvoiceModule({
   }
 
   function printInvoice() {
+    const prevTitle = document.title;
+    if (invoice.invoiceNumber) {
+      document.title = invoice.invoiceNumber;
+    }
     window.print();
+    setTimeout(() => {
+      document.title = prevTitle;
+    }, 1000);
   }
 
   function handleCreateNew() {
@@ -146,8 +153,8 @@ export function StandaloneInvoiceModule({
   return (
     <div className={styles.editorStack}>
       {/* Top Module Sub-Nav & Actions */}
-      <div className={styles.editorHeader}>
-        <div className={styles.tabsNav} style={{ margin: 0 }}>
+      <div className={styles.editorHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", width: "100%", boxSizing: "border-box", marginBottom: "18px" }}>
+        <div className={styles.tabsNav} style={{ margin: 0, flexWrap: "wrap", gap: "8px" }}>
           <button
             className={`${styles.tabButton} ${tab === "rekap" ? styles.tabActive : ""}`}
             onClick={() => setTab("rekap")}
@@ -178,17 +185,17 @@ export function StandaloneInvoiceModule({
           </button>
         </div>
 
-        <div className={styles.actionGroup}>
-          <button className={styles.primaryButton} onClick={handleCreateNew} type="button">
+        <div className={styles.actionGroup} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button className={styles.primaryButton} onClick={handleCreateNew} type="button" style={{ whiteSpace: "nowrap" }}>
             + Create New Invoice
           </button>
           {tab === "editor" && (
-            <button className={styles.successButton} onClick={onSaveInvoice} type="button">
+            <button className={styles.successButton} onClick={onSaveInvoice} type="button" style={{ whiteSpace: "nowrap" }}>
               Save Invoice
             </button>
           )}
           {tab === "preview" && (
-            <button className={styles.primaryButton} onClick={printInvoice} type="button">
+            <button className={styles.primaryButton} onClick={printInvoice} type="button" style={{ whiteSpace: "nowrap" }}>
               🖨️ Print Invoice
             </button>
           )}
@@ -499,16 +506,7 @@ export function StandaloneInvoiceModule({
 
       {tab === "preview" && (
         <div className={styles.previewWorkspace}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1e293b", padding: "12px 16px", borderRadius: "10px", border: "1px solid #334155" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "#f8fafc", fontSize: "14px", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={includeSignature}
-                onChange={(e) => setIncludeSignature(e.target.checked)}
-                style={{ width: "18px", height: "18px", accentColor: "#2563eb", cursor: "pointer" }}
-              />
-              <span><strong>Sertakan Stempel & Tanda Tangan Digital Resmi</strong> (PT. Bhumi Selaras Mitra)</span>
-            </label>
+          <div className={styles.previewControls} style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", background: "#1e293b", padding: "12px 16px", borderRadius: "10px", border: "1px solid #334155" }}>
             <button className={styles.primaryButton} onClick={printInvoice} type="button">
               🖨️ Print / Cetak PDF
             </button>
@@ -524,7 +522,6 @@ export function StandaloneInvoiceModule({
               pphAmount={pphAmount}
               otherAmount={otherAmount}
               totalAmount={totalAmount}
-              includeSignature={includeSignature}
             />
           </div>
         </div>
@@ -533,48 +530,48 @@ export function StandaloneInvoiceModule({
       {tab === "rekap" && (
         <section className={styles.panel}>
           {/* Rekap Header & Metrics */}
-          <div className={styles.panelHeader} style={{ marginBottom: "20px" }}>
-            <h3 style={{ fontSize: "20px", color: "#f8fafc" }}>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
-            <p style={{ color: "#94a3b8", fontSize: "14px" }}>Daftar lengkap invoice yang telah dibuat dan tersimpan.</p>
+          <div style={{ marginBottom: "20px" }}>
+            <h3 style={{ fontSize: "20px", color: "#f8fafc", margin: "0 0 4px" }}>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
+            <p style={{ color: "#94a3b8", fontSize: "14px", margin: 0 }}>Daftar lengkap invoice yang telah dibuat dan tersimpan.</p>
           </div>
 
           {/* Stat Summary Cards */}
           <div className={styles.statsRow} style={{ marginBottom: "24px" }}>
             <div className={styles.statCard}>
               <div className={`${styles.statIcon} ${styles.toneBlue}`}>●</div>
-              <div>
-                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Total Nilai Tagihan</h3>
-                <p style={{ color: "#38bdf8", fontSize: "20px", fontWeight: "bold" }}>{formatCurrency(rekapMetrics.totalRevenue)}</p>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px", margin: "0 0 4px" }}>Total Nilai Tagihan</h3>
+                <p style={{ color: "#38bdf8", fontSize: "18px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{formatCurrency(rekapMetrics.totalRevenue)}</p>
               </div>
             </div>
             <div className={styles.statCard}>
               <div className={`${styles.statIcon} ${styles.toneGreen}`}>●</div>
-              <div>
-                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Invoice Terbit</h3>
-                <p style={{ color: "#4ade80", fontSize: "20px", fontWeight: "bold" }}>{rekapMetrics.totalCount} Dokumen</p>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px", margin: "0 0 4px" }}>Invoice Terbit</h3>
+                <p style={{ color: "#4ade80", fontSize: "18px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{rekapMetrics.totalCount} Dokumen</p>
               </div>
             </div>
             <div className={styles.statCard}>
               <div className={`${styles.statIcon} ${styles.toneAmber}`}>●</div>
-              <div>
-                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Rata-rata Nilai Invoice</h3>
-                <p style={{ color: "#fbbf24", fontSize: "20px", fontWeight: "bold" }}>{formatCurrency(rekapMetrics.avgRevenue)}</p>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px", margin: "0 0 4px" }}>Rata-rata Nilai Invoice</h3>
+                <p style={{ color: "#fbbf24", fontSize: "18px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{formatCurrency(rekapMetrics.avgRevenue)}</p>
               </div>
             </div>
           </div>
 
           {/* Search Bar & Filters */}
-          <div className={styles.actionBar} style={{ marginBottom: "20px" }}>
-            <div className={styles.searchBox} style={{ flex: 1 }}>
+          <div className={styles.actionBar} style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", width: "100%" }}>
+            <div className={styles.searchBox} style={{ flex: "1 1 280px", maxWidth: "450px" }}>
               <span className={styles.searchIcon}>⌕</span>
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari berdasarkan No Invoice, Nama Customer, Perusahaan, atau ID..."
+                placeholder="Cari berdasarkan No Invoice, Nama Customer, Perusahaan..."
               />
             </div>
-            <div className={styles.actionGroup}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#cbd5e1", fontSize: "13px" }}>
+            <div className={styles.actionGroup} style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#cbd5e1", fontSize: "13px", whiteSpace: "nowrap" }}>
                 <span>Filter Bulan:</span>
                 <input
                   type="month"
@@ -738,7 +735,6 @@ export function StandaloneInvoicePrintTemplate({
   pphAmount,
   otherAmount,
   totalAmount,
-  includeSignature = true,
 }: {
   invoice: StandaloneInvoice;
   subtotal: number;
@@ -748,7 +744,6 @@ export function StandaloneInvoicePrintTemplate({
   pphAmount: number;
   otherAmount: number;
   totalAmount: number;
-  includeSignature?: boolean;
 }) {
   return (
     <div
@@ -980,51 +975,17 @@ export function StandaloneInvoicePrintTemplate({
             </tbody>
           </table>
 
-          {/* Signature & Official Stamp section */}
-          <div style={{ marginTop: "16px", textAlign: "center", position: "relative" }}>
+          {/* Signature section with digital signature image */}
+          <div style={{ marginTop: "16px", textAlign: "center" }}>
             <p style={{ margin: "2px 0", fontSize: "10px" }}>Make all checks payable to</p>
             <strong style={{ fontSize: "11px" }}>PT. Bhumi Selaras Mitra</strong>
             
-            <div style={{ minHeight: "55px", display: "flex", justifyContent: "center", alignItems: "center", margin: "4px 0", position: "relative" }}>
-              {includeSignature ? (
-                <div style={{ position: "relative", display: "inline-block" }}>
-                  {/* Digital Signature Image */}
-                  <img
-                    src={ttdImage.src}
-                    alt="Digital Signature"
-                    style={{ height: "50px", objectFit: "contain", filter: "contrast(1.2)" }}
-                  />
-                  {/* Official Company Seal Badge */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-6px",
-                      right: "-18px",
-                      border: "2px double #1e3a8a",
-                      borderRadius: "50%",
-                      width: "52px",
-                      height: "52px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#1e3a8a",
-                      opacity: 0.85,
-                      transform: "rotate(-12deg)",
-                      fontSize: "6px",
-                      fontWeight: "bold",
-                      textAlign: "center",
-                      lineHeight: "1.1",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <span>PT. BSM</span>
-                    <span>VERIFIED</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ height: "45px" }} />
-              )}
+            <div style={{ height: "65px", display: "flex", justifyContent: "center", alignItems: "center", margin: "4px 0" }}>
+              <img
+                src={ttdSignImage.src}
+                alt="Digital Signature"
+                style={{ height: "60px", objectFit: "contain" }}
+              />
             </div>
 
             <strong style={{ textDecoration: "underline", fontSize: "11px" }}>
