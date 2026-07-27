@@ -1,0 +1,38 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 00:00 UTC
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
+          SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+
+          # Fallback values if secrets are not defined in repository settings
+          if [ -z "$SUPABASE_URL" ]; then
+            SUPABASE_URL="https://ocpjomvbjtlowvnmzglm.supabase.co"
+          fi
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            SUPABASE_ANON_KEY="sb_publishable_zbODHZCExUR6gUffH-btWg_Zi2IWl56"
+          fi
+
+          echo "Pinging Supabase at $SUPABASE_URL ..."
+          
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/shipments?select=id&limit=1")
+
+          echo "HTTP Status Code: $RESPONSE"
+          if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 206 ]; then
+            echo "✅ Supabase is active and responding clean!"
+          else
+            echo "⚠️ Supabase responded with HTTP code $RESPONSE (Ping recorded successfully)"
+          fi
