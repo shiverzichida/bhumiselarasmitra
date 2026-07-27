@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import logoImage from "@/logo-bsm.png";
+import ttdImage from "@/ttd.png";
 import styles from "./workspace.module.css";
 import { formatCurrency, formatDateLong } from "@/lib/format";
 import type { CustomerMaster, InvoiceItemRow, StandaloneInvoice } from "@/lib/types";
+import { generateSuggestedInvoiceNumber } from "@/lib/number-generator";
 
 interface StandaloneInvoiceProps {
   invoice: StandaloneInvoice;
@@ -30,8 +32,11 @@ export function StandaloneInvoiceModule({
   onDeleteInvoice,
 }: StandaloneInvoiceProps) {
   const [tab, setTab] = useState<"rekap" | "editor" | "preview" | "customers">("rekap");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [includeSignature, setIncludeSignature] = useState(true);
 
-  // Financial calculations
+  // Financial calculations for current invoice
   const subtotal = useMemo(() => {
     return invoice.items.reduce((sum, item) => {
       const q = Number(item.quantity || 0);
@@ -47,8 +52,45 @@ export function StandaloneInvoiceModule({
   const otherAmount = Number(invoice.otherAmount || 0);
   const totalAmount = afterDiscount + ppnAmount - pphAmount + otherAmount;
 
+  // Filtered invoices for Rekap List
+  const filteredInvoices = useMemo(() => {
+    return savedInvoices.filter((inv) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        inv.invoiceNumber.toLowerCase().includes(q) ||
+        inv.customerName.toLowerCase().includes(q) ||
+        inv.companyName.toLowerCase().includes(q) ||
+        inv.customerId.toLowerCase().includes(q);
+
+      const matchMonth = !filterMonth || (inv.date && inv.date.startsWith(filterMonth));
+      return matchSearch && matchMonth;
+    });
+  }, [savedInvoices, searchQuery, filterMonth]);
+
+  // Financial metrics for Rekap Summary Cards
+  const rekapMetrics = useMemo(() => {
+    const totalCount = filteredInvoices.length;
+    const totalRevenue = filteredInvoices.reduce((sum, inv) => {
+      const sub = inv.items.reduce((s, item) => s + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
+      const disc = Number(inv.discount || 0);
+      const aftDisc = Math.max(0, sub - disc);
+      const ppn = (aftDisc * (inv.ppnRate || 0)) / 100;
+      const pph = (aftDisc * (inv.pphRate || 0)) / 100;
+      return sum + (aftDisc + ppn - pph + Number(inv.otherAmount || 0));
+    }, 0);
+
+    const avgRevenue = totalCount > 0 ? totalRevenue / totalCount : 0;
+    return { totalCount, totalRevenue, avgRevenue };
+  }, [filteredInvoices]);
+
   function updateField<K extends keyof StandaloneInvoice>(key: K, value: StandaloneInvoice[K]) {
     setInvoice((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleSuggestInvoiceNo() {
+    const suggested = generateSuggestedInvoiceNumber(savedInvoices.length, invoice.date);
+    updateField("invoiceNumber", suggested);
   }
 
   function handleCustomerSelect(customerId: string) {
@@ -172,7 +214,24 @@ export function StandaloneInvoiceModule({
           <h4 style={{ color: "#93c5fd", marginBottom: 12 }}>Invoice Header & Metadata</h4>
           <div className={styles.editorGrid}>
             <label className={styles.fieldLabel}>
-              <span>Invoice No.</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Invoice No.</span>
+                <button
+                  type="button"
+                  onClick={handleSuggestInvoiceNo}
+                  style={{
+                    background: "rgba(59, 130, 246, 0.2)",
+                    color: "#93c5fd",
+                    border: "1px solid #3b82f6",
+                    borderRadius: "4px",
+                    padding: "2px 8px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  🪄 Auto Suggest
+                </button>
+              </div>
               <input
                 value={invoice.invoiceNumber}
                 onChange={(e) => updateField("invoiceNumber", e.target.value)}
@@ -440,6 +499,21 @@ export function StandaloneInvoiceModule({
 
       {tab === "preview" && (
         <div className={styles.previewWorkspace}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1e293b", padding: "12px 16px", borderRadius: "10px", border: "1px solid #334155" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "#f8fafc", fontSize: "14px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={includeSignature}
+                onChange={(e) => setIncludeSignature(e.target.checked)}
+                style={{ width: "18px", height: "18px", accentColor: "#2563eb", cursor: "pointer" }}
+              />
+              <span><strong>Sertakan Stempel & Tanda Tangan Digital Resmi</strong> (PT. Bhumi Selaras Mitra)</span>
+            </label>
+            <button className={styles.primaryButton} onClick={printInvoice} type="button">
+              🖨️ Print / Cetak PDF
+            </button>
+          </div>
+
           <div className={styles.previewPaper}>
             <StandaloneInvoicePrintTemplate
               invoice={invoice}
@@ -450,6 +524,7 @@ export function StandaloneInvoiceModule({
               pphAmount={pphAmount}
               otherAmount={otherAmount}
               totalAmount={totalAmount}
+              includeSignature={includeSignature}
             />
           </div>
         </div>
@@ -457,10 +532,79 @@ export function StandaloneInvoiceModule({
 
       {tab === "rekap" && (
         <section className={styles.panel}>
+          {/* Rekap Header & Metrics */}
           <div className={styles.panelHeader} style={{ marginBottom: "20px" }}>
-            <h3 style={{ fontSize: "18px", color: "#f8fafc" }}>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
+            <h3 style={{ fontSize: "20px", color: "#f8fafc" }}>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
             <p style={{ color: "#94a3b8", fontSize: "14px" }}>Daftar lengkap invoice yang telah dibuat dan tersimpan.</p>
           </div>
+
+          {/* Stat Summary Cards */}
+          <div className={styles.statsRow} style={{ marginBottom: "24px" }}>
+            <div className={styles.statCard}>
+              <div className={`${styles.statIcon} ${styles.toneBlue}`}>●</div>
+              <div>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Total Nilai Tagihan</h3>
+                <p style={{ color: "#38bdf8", fontSize: "20px", fontWeight: "bold" }}>{formatCurrency(rekapMetrics.totalRevenue)}</p>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={`${styles.statIcon} ${styles.toneGreen}`}>●</div>
+              <div>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Invoice Terbit</h3>
+                <p style={{ color: "#4ade80", fontSize: "20px", fontWeight: "bold" }}>{rekapMetrics.totalCount} Dokumen</p>
+              </div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={`${styles.statIcon} ${styles.toneAmber}`}>●</div>
+              <div>
+                <h3 style={{ color: "#94a3b8", fontSize: "13px" }}>Rata-rata Nilai Invoice</h3>
+                <p style={{ color: "#fbbf24", fontSize: "20px", fontWeight: "bold" }}>{formatCurrency(rekapMetrics.avgRevenue)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Search Bar & Filters */}
+          <div className={styles.actionBar} style={{ marginBottom: "20px" }}>
+            <div className={styles.searchBox} style={{ flex: 1 }}>
+              <span className={styles.searchIcon}>⌕</span>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari berdasarkan No Invoice, Nama Customer, Perusahaan, atau ID..."
+              />
+            </div>
+            <div className={styles.actionGroup}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#cbd5e1", fontSize: "13px" }}>
+                <span>Filter Bulan:</span>
+                <input
+                  type="month"
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                  style={{
+                    background: "#0f172a",
+                    color: "#f8fafc",
+                    border: "1px solid #334155",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                  }}
+                />
+              </label>
+              {(searchQuery || filterMonth) && (
+                <button
+                  className={styles.outlineButton}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterMonth("");
+                  }}
+                  type="button"
+                >
+                  Reset Filter
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Invoices Table */}
           <div style={{ overflowX: "auto", borderRadius: "10px", border: "1px solid #334155" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", whiteSpace: "nowrap", fontSize: "14px", color: "#f8fafc" }}>
               <thead>
@@ -471,17 +615,13 @@ export function StandaloneInvoiceModule({
                   <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Cust ID</th>
                   <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Customer Name</th>
                   <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Company Name</th>
-                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Subtotal</th>
-                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Discount</th>
-                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>PPN</th>
-                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>PPh</th>
-                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Total</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Total Amount</th>
                   <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {savedInvoices.length > 0 ? (
-                  savedInvoices.map((inv, index) => {
+                {filteredInvoices.length > 0 ? (
+                  filteredInvoices.map((inv, index) => {
                     const sub = inv.items.reduce(
                       (s, item) => s + Number(item.quantity || 0) * Number(item.unitPrice || 0),
                       0,
@@ -502,10 +642,6 @@ export function StandaloneInvoiceModule({
                         <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#e2e8f0" }}>{inv.customerId}</td>
                         <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#ffffff", fontWeight: "600" }}>{inv.customerName}</td>
                         <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#e2e8f0" }}>{inv.companyName}</td>
-                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(sub)}</td>
-                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(disc)}</td>
-                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(ppn)}</td>
-                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(pph)}</td>
                         <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", fontWeight: "bold", color: "#38bdf8", fontSize: "15px" }}>
                           {formatCurrency(tot)}
                         </td>
@@ -576,7 +712,7 @@ export function StandaloneInvoiceModule({
                 ) : (
                   <tr>
                     <td colSpan={12} style={{ textAlign: "center", padding: 32, color: "#94a3b8", fontSize: "15px" }}>
-                      Belum ada Rekap Invoice tersimpan.
+                      Tidak ada Invoice yang sesuai dengan kriteria pencarian.
                     </td>
                   </tr>
                 )}
@@ -602,6 +738,7 @@ export function StandaloneInvoicePrintTemplate({
   pphAmount,
   otherAmount,
   totalAmount,
+  includeSignature = true,
 }: {
   invoice: StandaloneInvoice;
   subtotal: number;
@@ -611,6 +748,7 @@ export function StandaloneInvoicePrintTemplate({
   pphAmount: number;
   otherAmount: number;
   totalAmount: number;
+  includeSignature?: boolean;
 }) {
   return (
     <div
@@ -776,7 +914,7 @@ export function StandaloneInvoicePrintTemplate({
         </tbody>
       </table>
 
-      {/* SUMMARY & PAYMENT INFO (Bottom split layout matching sheet Invoice 001) */}
+      {/* SUMMARY & PAYMENT INFO */}
       <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "16px", fontSize: "11px" }}>
         {/* Left column: ATTENTION & PAYMENT INFO */}
         <div style={{ border: "1px solid #cbd5e1", padding: "10px", borderRadius: "4px", background: "#fafafa" }}>
@@ -842,12 +980,54 @@ export function StandaloneInvoicePrintTemplate({
             </tbody>
           </table>
 
-          {/* Signature section */}
-          <div style={{ marginTop: "20px", textAlign: "center" }}>
-            <p style={{ margin: "2px 0", fontSize: "11px" }}>Make all checks payable to</p>
-            <strong style={{ fontSize: "12px" }}>PT. Bhumi Selaras Mitra</strong>
-            <div style={{ height: "45px" }} />
-            <strong style={{ textDecoration: "underline", fontSize: "12px" }}>
+          {/* Signature & Official Stamp section */}
+          <div style={{ marginTop: "16px", textAlign: "center", position: "relative" }}>
+            <p style={{ margin: "2px 0", fontSize: "10px" }}>Make all checks payable to</p>
+            <strong style={{ fontSize: "11px" }}>PT. Bhumi Selaras Mitra</strong>
+            
+            <div style={{ minHeight: "55px", display: "flex", justifyContent: "center", alignItems: "center", margin: "4px 0", position: "relative" }}>
+              {includeSignature ? (
+                <div style={{ position: "relative", display: "inline-block" }}>
+                  {/* Digital Signature Image */}
+                  <img
+                    src={ttdImage.src}
+                    alt="Digital Signature"
+                    style={{ height: "50px", objectFit: "contain", filter: "contrast(1.2)" }}
+                  />
+                  {/* Official Company Seal Badge */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "-6px",
+                      right: "-18px",
+                      border: "2px double #1e3a8a",
+                      borderRadius: "50%",
+                      width: "52px",
+                      height: "52px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#1e3a8a",
+                      opacity: 0.85,
+                      transform: "rotate(-12deg)",
+                      fontSize: "6px",
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      lineHeight: "1.1",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <span>PT. BSM</span>
+                    <span>VERIFIED</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ height: "45px" }} />
+              )}
+            </div>
+
+            <strong style={{ textDecoration: "underline", fontSize: "11px" }}>
               ( {invoice.signerName || "Ari Wahyudi"} )
             </strong>
           </div>

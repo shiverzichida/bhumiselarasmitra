@@ -10,6 +10,8 @@ import { mergeWithSample, sampleDraft, sampleStandaloneInvoice, sampleCustomers,
 import { mapShipmentToState, mapStateToShipmentPayload } from "@/lib/shipment-mappers";
 import type { CargoRow, ContainerRow, CustomerMaster, InvoiceItemRow, ShipmentDraft, ShipmentListItem, StandaloneInvoice } from "@/lib/types";
 import { StandaloneInvoiceModule } from "@/components/standalone-invoice";
+import { generateSuggestedBLNumber, generateSuggestedSINumber } from "@/lib/number-generator";
+
 
 type ActiveView = "dashboard" | "editor" | "invoice" | "history";
 type EditorTab = "general" | "parties" | "routing" | "cargo" | "preview";
@@ -261,6 +263,16 @@ export function Workspace() {
     };
     setStandaloneInvoice(newInv);
     window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(newInv));
+  }
+
+  function handleSuggestBLNo() {
+    const suggested = generateSuggestedBLNumber(cloudShipments.length, draft.issueDate);
+    updateField("blNumber", suggested);
+  }
+
+  function handleSuggestSINo() {
+    const suggested = generateSuggestedSINumber(cloudShipments.length, draft.issueDate);
+    updateField("siNumber", suggested);
   }
 
   function handleDeleteStandaloneInvoice(invNo: string) {
@@ -747,8 +759,8 @@ export function Workspace() {
               {editorTab === "general" && (
                 <EditorGrid>
                   <Field label="Document batch" value={draft.documentBatch} onChange={(value) => updateField("documentBatch", value)} />
-                  <Field label="Shipping instruction no" value={draft.siNumber} onChange={(value) => updateField("siNumber", value)} />
-                  <Field label="Bill of lading no" value={draft.blNumber} onChange={(value) => updateField("blNumber", value)} />
+                  <Field label="Shipping instruction no" value={draft.siNumber} onChange={(value) => updateField("siNumber", value)} onSuggest={handleSuggestSINo} />
+                  <Field label="Bill of lading no" value={draft.blNumber} onChange={(value) => updateField("blNumber", value)} onSuggest={handleSuggestBLNo} />
                   <Field label="Invoice no" value={draft.invoiceNumber} onChange={(value) => updateField("invoiceNumber", value)} />
                   <Field label="Issue date" type="date" value={draft.issueDate} onChange={(value) => updateField("issueDate", value)} />
                   <Field label="Booking no" value={draft.bookingNumber} onChange={(value) => updateField("bookingNumber", value)} />
@@ -874,18 +886,39 @@ function Field({
   label,
   value,
   onChange,
+  onSuggest,
   multiline = false,
   type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onSuggest?: () => void;
   multiline?: boolean;
   type?: string;
 }) {
   return (
     <label className={styles.fieldLabel}>
-      <span>{label}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{label}</span>
+        {onSuggest && (
+          <button
+            type="button"
+            onClick={onSuggest}
+            style={{
+              background: "rgba(59, 130, 246, 0.2)",
+              color: "#93c5fd",
+              border: "1px solid #3b82f6",
+              borderRadius: "4px",
+              padding: "2px 8px",
+              fontSize: "12px",
+              cursor: "pointer",
+            }}
+          >
+            🪄 Auto Suggest
+          </button>
+        )}
+      </div>
       {multiline ? (
         <textarea rows={4} value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
