@@ -457,26 +457,26 @@ export function StandaloneInvoiceModule({
 
       {tab === "rekap" && (
         <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h3>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
-            <p>Daftar lengkap invoice yang telah dibuat dan tersimpan.</p>
+          <div className={styles.panelHeader} style={{ marginBottom: "20px" }}>
+            <h3 style={{ fontSize: "18px", color: "#f8fafc" }}>Rekapitulasi Invoice (Sheet: Rekap Invoice)</h3>
+            <p style={{ color: "#94a3b8", fontSize: "14px" }}>Daftar lengkap invoice yang telah dibuat dan tersimpan.</p>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table className={styles.paperTable} style={{ width: "100%", whiteSpace: "nowrap" }}>
+          <div style={{ overflowX: "auto", borderRadius: "10px", border: "1px solid #334155" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", whiteSpace: "nowrap", fontSize: "14px", color: "#f8fafc" }}>
               <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Date</th>
-                  <th>Invoice No</th>
-                  <th>Cust ID</th>
-                  <th>Customer Name</th>
-                  <th>Company Name</th>
-                  <th>Subtotal</th>
-                  <th>Discount</th>
-                  <th>PPN</th>
-                  <th>PPh</th>
-                  <th>Total</th>
-                  <th>Actions</th>
+                <tr style={{ background: "#1e293b", color: "#f8fafc", textAlign: "left", fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>No</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Date</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Invoice No</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Cust ID</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Customer Name</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Company Name</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Subtotal</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Discount</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>PPN</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>PPh</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "right" }}>Total</th>
+                  <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -493,49 +493,80 @@ export function StandaloneInvoiceModule({
                     const tot = aftDisc + ppn - pph + Number(inv.otherAmount || 0);
 
                     return (
-                      <tr key={inv.invoiceNumber + index}>
-                        <td>{index + 1}</td>
-                        <td>{inv.date}</td>
-                        <td>
-                          <strong>{inv.invoiceNumber}</strong>
+                      <tr key={inv.invoiceNumber + index} style={{ background: index % 2 === 0 ? "#0f172a" : "#1e293b" }}>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#94a3b8" }}>{index + 1}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#cbd5e1" }}>{inv.date}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155" }}>
+                          <strong style={{ color: "#60a5fa" }}>{inv.invoiceNumber}</strong>
                         </td>
-                        <td>{inv.customerId}</td>
-                        <td>{inv.customerName}</td>
-                        <td>{inv.companyName}</td>
-                        <td>{formatCurrency(sub)}</td>
-                        <td>{formatCurrency(disc)}</td>
-                        <td>{formatCurrency(ppn)}</td>
-                        <td>{formatCurrency(pph)}</td>
-                        <td style={{ fontWeight: "bold", color: "#38bdf8" }}>{formatCurrency(tot)}</td>
-                        <td>
-                          <div style={{ display: "flex", gap: 6 }}>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#e2e8f0" }}>{inv.customerId}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#ffffff", fontWeight: "600" }}>{inv.customerName}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#e2e8f0" }}>{inv.companyName}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(sub)}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(disc)}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(ppn)}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", color: "#cbd5e1" }}>{formatCurrency(pph)}</td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "right", fontWeight: "bold", color: "#38bdf8", fontSize: "15px" }}>
+                          {formatCurrency(tot)}
+                        </td>
+                        <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "center" }}>
+                          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
                             <button
-                              className={styles.inlineButton}
+                              style={{
+                                background: "#2563eb",
+                                color: "#ffffff",
+                                border: 0,
+                                borderRadius: "8px",
+                                padding: "8px 14px",
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                              }}
                               onClick={() => {
                                 onLoadInvoice(inv);
                                 setTab("editor");
                               }}
                               type="button"
                             >
-                              Edit
+                              ✏️ Edit
                             </button>
                             <button
-                              className={styles.inlineButton}
+                              style={{
+                                background: "#0284c7",
+                                color: "#ffffff",
+                                border: 0,
+                                borderRadius: "8px",
+                                padding: "8px 14px",
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                              }}
                               onClick={() => {
                                 onLoadInvoice(inv);
                                 setTab("preview");
                               }}
                               type="button"
                             >
-                              Preview
+                              👁️ Preview
                             </button>
                             <button
-                              className={styles.dangerButton}
+                              style={{
+                                background: "#dc2626",
+                                color: "#ffffff",
+                                border: 0,
+                                borderRadius: "8px",
+                                padding: "8px 12px",
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                              }}
                               onClick={() => onDeleteInvoice(inv.invoiceNumber)}
                               type="button"
-                              style={{ padding: "2px 6px" }}
                             >
-                              Hapus
+                              🗑️ Hapus
                             </button>
                           </div>
                         </td>
@@ -544,7 +575,7 @@ export function StandaloneInvoiceModule({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={12} style={{ textAlign: "center", padding: 24, color: "#94a3b8" }}>
+                    <td colSpan={12} style={{ textAlign: "center", padding: 32, color: "#94a3b8", fontSize: "15px" }}>
                       Belum ada Rekap Invoice tersimpan.
                     </td>
                   </tr>
@@ -935,39 +966,48 @@ function CustomerMasterManager({
         + Save New Customer
       </button>
 
-      <h4 style={{ color: "#93c5fd", margin: "24px 0 12px" }}>List Master Customer</h4>
-      <div style={{ overflowX: "auto" }}>
-        <table className={styles.paperTable} style={{ width: "100%" }}>
+      <h4 style={{ color: "#93c5fd", margin: "28px 0 14px", fontSize: "16px" }}>List Master Customer</h4>
+      <div style={{ overflowX: "auto", borderRadius: "10px", border: "1px solid #334155" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", whiteSpace: "nowrap", fontSize: "14px", color: "#f8fafc" }}>
           <thead>
-            <tr>
-              <th>Cust ID</th>
-              <th>Customer Name</th>
-              <th>Company Name</th>
-              <th>Address</th>
-              <th>City</th>
-              <th>Phone</th>
-              <th>Action</th>
+            <tr style={{ background: "#1e293b", color: "#f8fafc", textAlign: "left", fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Cust ID</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Customer Name</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Company Name</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Address</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>City</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155" }}>Phone</th>
+              <th style={{ padding: "14px 16px", borderBottom: "2px solid #334155", textAlign: "center" }}>Action</th>
             </tr>
           </thead>
           <tbody>
-            {customers.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <strong>{c.customerId}</strong>
+            {customers.map((c, index) => (
+              <tr key={c.id} style={{ background: index % 2 === 0 ? "#0f172a" : "#1e293b" }}>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155" }}>
+                  <strong style={{ color: "#38bdf8" }}>{c.customerId}</strong>
                 </td>
-                <td>{c.customerName}</td>
-                <td>{c.companyName}</td>
-                <td>{c.streetAddress}</td>
-                <td>{c.city}</td>
-                <td>{c.phone}</td>
-                <td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#ffffff", fontWeight: "600" }}>{c.customerName}</td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#e2e8f0" }}>{c.companyName}</td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#cbd5e1" }}>{c.streetAddress}</td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#cbd5e1" }}>{c.city}</td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", color: "#cbd5e1" }}>{c.phone}</td>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid #334155", textAlign: "center" }}>
                   <button
-                    className={styles.dangerButton}
+                    style={{
+                      background: "#dc2626",
+                      color: "#ffffff",
+                      border: 0,
+                      borderRadius: "8px",
+                      padding: "8px 14px",
+                      fontWeight: "600",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                    }}
                     onClick={() => deleteCustomer(c.id)}
                     type="button"
-                    style={{ padding: "2px 8px" }}
                   >
-                    Hapus
+                    🗑️ Hapus
                   </button>
                 </td>
               </tr>
