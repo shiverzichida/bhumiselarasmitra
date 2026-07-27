@@ -582,44 +582,68 @@ export function StandaloneInvoicePrintTemplate({
   totalAmount: number;
 }) {
   return (
-    <div className="invoice-print-container" style={{ background: "#ffffff", color: "#000000", padding: "24px", fontFamily: "sans-serif" }}>
+    <div
+      className="invoice-print-container"
+      style={{
+        background: "#ffffff",
+        color: "#000000",
+        padding: "16px",
+        fontFamily: "Arial, sans-serif",
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Header layout matching sheet 'Invoice 001' */}
-      <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #000", paddingBottom: "12px", marginBottom: "16px" }}>
-        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-          <img src={logoImage.src} alt="Bhumi Logo" style={{ height: "60px", objectFit: "contain" }} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: "12px",
+          borderBottom: "2px solid #000",
+          paddingBottom: "10px",
+          marginBottom: "14px",
+          alignItems: "flex-start",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+          <img src={logoImage.src} alt="Bhumi Logo" style={{ height: "55px", objectFit: "contain" }} />
           <div>
-            <h2 style={{ margin: 0, color: "#1e3a8a", fontSize: "20px", fontWeight: "bold" }}>
+            <h2 style={{ margin: 0, color: "#1e3a8a", fontSize: "18px", fontWeight: "bold" }}>
               PT. BHUMI SELARAS MITRA
             </h2>
-            <p style={{ margin: "2px 0", fontSize: "11px", color: "#333" }}>
+            <p style={{ margin: "2px 0", fontSize: "10px", color: "#333" }}>
               Menteng Square Office Tower A Lt 2 Unit AK 8, Kel. Kenari, Kec. Senen
             </p>
-            <p style={{ margin: "2px 0", fontSize: "11px", color: "#333" }}>
+            <p style={{ margin: "2px 0", fontSize: "10px", color: "#333" }}>
               Kota Adm. Jakarta Pusat, Provinsi DKI Jakarta 10430
             </p>
-            <p style={{ margin: "2px 0", fontSize: "11px", color: "#555" }}>
+            <p style={{ margin: "2px 0", fontSize: "10px", color: "#555" }}>
               Phone: +62-811-8627-047 | Email: pt.bhumiselarasmitra@gmail.com
             </p>
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <h1 style={{ margin: 0, fontSize: "28px", letterSpacing: "2px", color: "#1e3a8a" }}>INVOICE</h1>
-          <table style={{ margin: "8px 0 0 auto", fontSize: "11px", borderCollapse: "collapse" }}>
+        <div style={{ textAlign: "right", minWidth: "190px" }}>
+          <h1 style={{ margin: 0, fontSize: "24px", letterSpacing: "1px", color: "#1e3a8a" }}>INVOICE</h1>
+          <table style={{ margin: "4px 0 0 auto", fontSize: "10px", borderCollapse: "collapse", lineHeight: "1.3" }}>
             <tbody>
               <tr>
-                <td style={{ fontWeight: "bold", paddingRight: "8px", textAlign: "right" }}>DATE :</td>
+                <td style={{ fontWeight: "bold", paddingRight: "6px", textAlign: "right" }}>DATE :</td>
                 <td style={{ textAlign: "left" }}>{invoice.date ? formatDateLong(invoice.date) : "-"}</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: "bold", paddingRight: "8px", textAlign: "right" }}>INVOICE NO :</td>
-                <td style={{ textAlign: "left", fontWeight: "bold" }}>{invoice.invoiceNumber || "-"}</td>
+                <td style={{ fontWeight: "bold", paddingRight: "6px", textAlign: "right" }}>INVOICE NO :</td>
+                <td style={{ textAlign: "left", fontWeight: "bold", fontSize: "10px", wordBreak: "break-all" }}>
+                  {invoice.invoiceNumber || "-"}
+                </td>
               </tr>
               <tr>
-                <td style={{ fontWeight: "bold", paddingRight: "8px", textAlign: "right" }}>CUSTOMER ID :</td>
+                <td style={{ fontWeight: "bold", paddingRight: "6px", textAlign: "right" }}>CUSTOMER ID :</td>
                 <td style={{ textAlign: "left" }}>{invoice.customerId || "-"}</td>
               </tr>
               <tr>
-                <td style={{ fontWeight: "bold", paddingRight: "8px", textAlign: "right" }}>DUE DATE :</td>
+                <td style={{ fontWeight: "bold", paddingRight: "6px", textAlign: "right" }}>DUE DATE :</td>
                 <td style={{ textAlign: "left" }}>{invoice.dueDate ? formatDateLong(invoice.dueDate) : "-"}</td>
               </tr>
             </tbody>
@@ -628,14 +652,32 @@ export function StandaloneInvoicePrintTemplate({
       </div>
 
       {/* BILL TO */}
-      <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "10px 14px", marginBottom: "16px", fontSize: "12px" }}>
-        <strong style={{ color: "#1e3a8a", borderBottom: "1px solid #cbd5e1", display: "inline-block", paddingBottom: "2px", marginBottom: "6px" }}>
+      <div
+        style={{
+          background: "#f8fafc",
+          border: "1px solid #cbd5e1",
+          borderRadius: "4px",
+          padding: "8px 12px",
+          marginBottom: "14px",
+          fontSize: "11px",
+          boxSizing: "border-box",
+        }}
+      >
+        <strong
+          style={{
+            color: "#1e3a8a",
+            borderBottom: "1px solid #cbd5e1",
+            display: "inline-block",
+            paddingBottom: "2px",
+            marginBottom: "4px",
+          }}
+        >
           BILL TO
         </strong>
-        <table style={{ width: "100%", fontSize: "12px", lineHeight: "1.5" }}>
+        <table style={{ width: "100%", fontSize: "11px", lineHeight: "1.4" }}>
           <tbody>
             <tr>
-              <td style={{ width: "120px", color: "#475569" }}>Name Mr/Mrs.</td>
+              <td style={{ width: "110px", color: "#475569" }}>Name Mr/Mrs.</td>
               <td style={{ width: "10px" }}>:</td>
               <td style={{ fontWeight: "bold" }}>{invoice.customerName || "-"}</td>
             </tr>
@@ -664,15 +706,24 @@ export function StandaloneInvoicePrintTemplate({
       </div>
 
       {/* ITEMS TABLE */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px", fontSize: "12px" }}>
+      <table
+        style={{
+          width: "100%",
+          tableLayout: "fixed",
+          borderCollapse: "collapse",
+          marginBottom: "14px",
+          fontSize: "10px",
+          boxSizing: "border-box",
+        }}
+      >
         <thead>
           <tr style={{ background: "#1e3a8a", color: "#ffffff" }}>
-            <th style={{ padding: "8px", textAlign: "center", border: "1px solid #1e3a8a", width: "40px" }}>NO</th>
-            <th style={{ padding: "8px", textAlign: "left", border: "1px solid #1e3a8a" }}>DESCRIPTION</th>
-            <th style={{ padding: "8px", textAlign: "center", border: "1px solid #1e3a8a", width: "60px" }}>QTY</th>
-            <th style={{ padding: "8px", textAlign: "center", border: "1px solid #1e3a8a", width: "60px" }}>UNIT</th>
-            <th style={{ padding: "8px", textAlign: "right", border: "1px solid #1e3a8a", width: "130px" }}>PRICE (Rp)</th>
-            <th style={{ padding: "8px", textAlign: "right", border: "1px solid #1e3a8a", width: "140px" }}>AMOUNT (Rp)</th>
+            <th style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #1e3a8a", width: "6%" }}>NO</th>
+            <th style={{ padding: "6px 6px", textAlign: "left", border: "1px solid #1e3a8a", width: "44%" }}>DESCRIPTION</th>
+            <th style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #1e3a8a", width: "8%" }}>QTY</th>
+            <th style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #1e3a8a", width: "8%" }}>UNIT</th>
+            <th style={{ padding: "6px 6px", textAlign: "right", border: "1px solid #1e3a8a", width: "17%" }}>PRICE (Rp)</th>
+            <th style={{ padding: "6px 6px", textAlign: "right", border: "1px solid #1e3a8a", width: "17%" }}>AMOUNT (Rp)</th>
           </tr>
         </thead>
         <tbody>
@@ -682,12 +733,12 @@ export function StandaloneInvoicePrintTemplate({
             const amt = q * p;
             return (
               <tr key={index} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                <td style={{ padding: "8px", textAlign: "center", border: "1px solid #cbd5e1" }}>{index + 1}</td>
-                <td style={{ padding: "8px", border: "1px solid #cbd5e1" }}>{item.description || "-"}</td>
-                <td style={{ padding: "8px", textAlign: "center", border: "1px solid #cbd5e1" }}>{item.quantity}</td>
-                <td style={{ padding: "8px", textAlign: "center", border: "1px solid #cbd5e1" }}>{item.unit}</td>
-                <td style={{ padding: "8px", textAlign: "right", border: "1px solid #cbd5e1" }}>{formatCurrency(p)}</td>
-                <td style={{ padding: "8px", textAlign: "right", border: "1px solid #cbd5e1", fontWeight: "bold" }}>{formatCurrency(amt)}</td>
+                <td style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #cbd5e1" }}>{index + 1}</td>
+                <td style={{ padding: "6px 6px", border: "1px solid #cbd5e1", wordBreak: "break-word" }}>{item.description || "-"}</td>
+                <td style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #cbd5e1" }}>{item.quantity}</td>
+                <td style={{ padding: "6px 4px", textAlign: "center", border: "1px solid #cbd5e1" }}>{item.unit}</td>
+                <td style={{ padding: "6px 6px", textAlign: "right", border: "1px solid #cbd5e1" }}>{formatCurrency(p)}</td>
+                <td style={{ padding: "6px 6px", textAlign: "right", border: "1px solid #cbd5e1", fontWeight: "bold" }}>{formatCurrency(amt)}</td>
               </tr>
             );
           })}
