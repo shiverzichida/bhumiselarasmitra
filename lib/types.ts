@@ -73,6 +73,8 @@ export type ShipmentListItem = {
   invoice_number: string | null;
   issue_date: string | null;
   updated_at?: string | null;
+  user_email?: string | null;
+  changed_fields?: string | null;
 };
 
 export type CustomerMaster = {

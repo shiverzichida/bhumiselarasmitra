@@ -18,6 +18,7 @@ type EditorTab = "general" | "parties" | "routing" | "cargo" | "preview";
 type ActiveDoc = "si" | "bl" | "invoice";
 
 const SAVED_INVOICES_KEY = "bhumi-docs-saved-invoices-list-v1";
+const LOCAL_HISTORY_LOGS_KEY = "bhumi_local_history_logs_v1";
 const supabase = getSupabaseBrowserClient();
 const db = supabase as any;
 
@@ -41,6 +42,13 @@ export function Workspace() {
   const [standaloneInvoice, setStandaloneInvoice] = useState<StandaloneInvoice>(sampleStandaloneInvoice);
   const [customers, setCustomers] = useState<CustomerMaster[]>(sampleCustomers);
   const [savedInvoices, setSavedInvoices] = useState<StandaloneInvoice[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // History Log States
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyPageSize, setHistoryPageSize] = useState(5);
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const [localHistoryLogs, setLocalHistoryLogs] = useState<ShipmentListItem[]>([]);
 
 
   useEffect(() => {
@@ -80,6 +88,15 @@ export function Workspace() {
       }
     } else {
       setSavedInvoices([sampleStandaloneInvoice]);
+    }
+
+    const savedHistory = window.localStorage.getItem(LOCAL_HISTORY_LOGS_KEY);
+    if (savedHistory) {
+      try {
+        setLocalHistoryLogs(JSON.parse(savedHistory));
+      } catch {
+        setLocalHistoryLogs([]);
+      }
     }
 
     if (!supabase) {
@@ -153,6 +170,76 @@ export function Workspace() {
     return filteredShipments.slice(start, start + pageSize);
   }, [filteredShipments, currentPage, pageSize, totalPages]);
 
+  function addHistoryLog(item: {
+    batch: string;
+    si: string;
+    bl: string;
+    invoice: string;
+    changedFields: string;
+  }) {
+    const newEntry: ShipmentListItem = {
+      id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      document_batch: item.batch || "Local Batch",
+      si_number: item.si || null,
+      bl_number: item.bl || null,
+      invoice_number: item.invoice || null,
+      issue_date: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user_email: sessionEmail ?? "Operator (Local)",
+      changed_fields: item.changedFields,
+    };
+
+    setLocalHistoryLogs((prev) => {
+      const updated = [newEntry, ...prev].slice(0, 100);
+      window.localStorage.setItem(LOCAL_HISTORY_LOGS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }
+
+  const combinedHistory = useMemo(() => {
+    const list: ShipmentListItem[] = [...localHistoryLogs];
+
+    cloudShipments.forEach((item) => {
+      if (!list.some((existing) => existing.id === item.id)) {
+        list.push({
+          ...item,
+          user_email: item.user_email || sessionEmail || "Operator (Supabase)",
+          changed_fields: item.changed_fields || "Header B/L, Shipper & Consignee, Routing, Cargo Summary",
+        });
+      }
+    });
+
+    return list.sort((a, b) => {
+      const timeA = new Date(a.updated_at || a.issue_date || 0).getTime();
+      const timeB = new Date(b.updated_at || b.issue_date || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [localHistoryLogs, cloudShipments, sessionEmail]);
+
+  const filteredHistory = useMemo(() => {
+    const q = historySearchQuery.trim().toLowerCase();
+    if (!q) return combinedHistory;
+    return combinedHistory.filter((item) =>
+      [
+        item.document_batch,
+        item.si_number,
+        item.bl_number,
+        item.invoice_number,
+        item.user_email,
+        item.changed_fields,
+      ]
+        .filter(Boolean)
+        .some((val) => val!.toLowerCase().includes(q)),
+    );
+  }, [combinedHistory, historySearchQuery]);
+
+  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize));
+  const pagedHistory = useMemo(() => {
+    const safePage = Math.min(historyCurrentPage, historyTotalPages);
+    const start = (safePage - 1) * historyPageSize;
+    return filteredHistory.slice(start, start + historyPageSize);
+  }, [filteredHistory, historyCurrentPage, historyPageSize, historyTotalPages]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, pageSize]);
@@ -225,6 +312,13 @@ export function Workspace() {
 
   function saveDraftLocal() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    addHistoryLog({
+      batch: draft.documentBatch || "Draft Lokal",
+      si: draft.siNumber || "-",
+      bl: draft.blNumber || "-",
+      invoice: draft.invoiceNumber || "-",
+      changedFields: `Draft Disimpan (Shipper: ${draft.shipper ? draft.shipper.slice(0, 18) + "..." : "-"}, Vessel: ${draft.vessel || "-"})`,
+    });
     setCloudStatus("Draft saved locally.");
   }
 
@@ -242,6 +336,14 @@ export function Workspace() {
       }
       window.localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(updatedList));
       return updatedList;
+    });
+
+    addHistoryLog({
+      batch: "Rekap Invoice",
+      si: draft.siNumber || "-",
+      bl: draft.blNumber || "-",
+      invoice: standaloneInvoice.invoiceNumber || "-",
+      changedFields: `Pembaruan Standalone Invoice (${standaloneInvoice.companyName || standaloneInvoice.customerName || "-"})`,
     });
 
     setCloudStatus(`Invoice ${standaloneInvoice.invoiceNumber} berhasil disimpan.`);
@@ -402,6 +504,13 @@ export function Workspace() {
       );
 
       saveDraftLocal();
+      addHistoryLog({
+        batch: draft.documentBatch || "Cloud Batch",
+        si: draft.siNumber || "-",
+        bl: draft.blNumber || "-",
+        invoice: draft.invoiceNumber || "-",
+        changedFields: `Sinkronisasi Cloud Supabase (Batch: ${draft.documentBatch}, B/L: ${draft.blNumber || "-"})`,
+      });
       setCloudStatus(`Shipment ${draft.documentBatch} saved to Supabase.`);
       await refreshCloudShipments();
       setActiveView("dashboard");
@@ -462,7 +571,11 @@ export function Workspace() {
 
   return (
     <div className={styles.appShell}>
-      <aside className={styles.sidebar}>
+      {isMobileMenuOpen && (
+        <div className={styles.sidebarBackdrop} onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`${styles.sidebar} ${isMobileMenuOpen ? styles.sidebarOpen : ""}`}>
         <div className={styles.sidebarBrand}>
           <img src={logoImage.src} alt="Bhumi logo" className={styles.sidebarLogoImage} />
           <div className={styles.brandText}>
@@ -472,21 +585,39 @@ export function Workspace() {
         </div>
 
         <nav className={styles.sidebarNav}>
-          <SidebarButton active={activeView === "dashboard"} onClick={() => setActiveView("dashboard")} label="Dashboard" />
+          <SidebarButton
+            active={activeView === "dashboard"}
+            onClick={() => {
+              setActiveView("dashboard");
+              setIsMobileMenuOpen(false);
+            }}
+            label="Dashboard"
+          />
           <SidebarButton
             active={activeView === "editor"}
             onClick={() => {
               setActiveView("editor");
               setEditorTab("general");
+              setIsMobileMenuOpen(false);
             }}
             label="Create / Edit B/L"
           />
           <SidebarButton
             active={activeView === "invoice"}
-            onClick={() => setActiveView("invoice")}
+            onClick={() => {
+              setActiveView("invoice");
+              setIsMobileMenuOpen(false);
+            }}
             label="Invoice Management"
           />
-          <SidebarButton active={activeView === "history"} onClick={() => setActiveView("history")} label="History Logs" />
+          <SidebarButton
+            active={activeView === "history"}
+            onClick={() => {
+              setActiveView("history");
+              setIsMobileMenuOpen(false);
+            }}
+            label="History Logs"
+          />
         </nav>
 
         <div className={styles.sidebarFooter}>
@@ -497,25 +628,35 @@ export function Workspace() {
 
       <main className={styles.mainContent}>
         <header className={styles.topBar}>
-          <div>
-            <h2 className={styles.pageTitle}>
-              {activeView === "dashboard"
-                ? "Dashboard"
-                : activeView === "editor"
-                  ? "Bill of Lading Editor"
-                  : activeView === "invoice"
-                    ? "Invoice Management (Spreadsheet Model)"
-                    : "History Logs"}
-            </h2>
-            <p className={styles.pageSubtitle}>
-              {activeView === "dashboard"
-                ? "Monitor shipment drafts, status, and cargo document workflow."
-                : activeView === "editor"
-                  ? "Create, edit, review, and print B/L and Shipping Instruction."
-                  : activeView === "invoice"
-                    ? "Kelola Invoice, Rekap Invoice, dan Customer Database terpisah presisi format Excel."
-                    : "Quick access to recent cloud shipments stored in Supabase."}
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <button
+              className={styles.hamburgerButton}
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle Navigation Menu"
+              type="button"
+            >
+              ☰
+            </button>
+            <div>
+              <h2 className={styles.pageTitle}>
+                {activeView === "dashboard"
+                  ? "Dashboard"
+                  : activeView === "editor"
+                    ? "Bill of Lading Editor"
+                    : activeView === "invoice"
+                      ? "Invoice Management (Spreadsheet Model)"
+                      : "History Logs"}
+              </h2>
+              <p className={styles.pageSubtitle}>
+                {activeView === "dashboard"
+                  ? "Monitor shipment drafts, status, and cargo document workflow."
+                  : activeView === "editor"
+                    ? "Create, edit, review, and print B/L and Shipping Instruction."
+                    : activeView === "invoice"
+                      ? "Kelola Invoice, Rekap Invoice, dan Customer Database terpisah presisi format Excel."
+                      : "Quick access to recent cloud shipments stored in Supabase."}
+              </p>
+            </div>
           </div>
           <div className={styles.topBarRight}>
             <div className={styles.deviceCard}>
@@ -689,27 +830,147 @@ export function Workspace() {
         ) : activeView === "history" ? (
           <section className={styles.viewSection}>
             <section className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <h3>Recent Shipment History</h3>
-                <p>Cloud records fetched from Supabase.</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+                <div>
+                  <h3 style={{ fontSize: "20px", color: "#f8fafc", margin: "0 0 4px" }}>History Logs & Audit Trail</h3>
+                  <p style={{ color: "#94a3b8", fontSize: "14px", margin: 0 }}>Daftar lengkap riwayat perubahan data dokumen, operator pengubah, dan waktu pembaruan.</p>
+                </div>
+                <button className={styles.outlineButton} onClick={() => void refreshCloudShipments()} type="button">
+                  🔄 Refresh Data
+                </button>
               </div>
-              <div className={styles.historyList}>
-                {cloudShipments.length ? (
-                  cloudShipments.map((item) => (
-                    <button
-                      key={item.id}
-                      className={styles.historyCard}
-                      onClick={() => void loadShipmentById(item.id)}
-                      type="button"
+
+              {/* Filter & Search Bar */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px", background: "#1e293b", padding: "12px 16px", borderRadius: "12px", border: "1px solid #334155" }}>
+                <div className={styles.searchBox} style={{ maxWidth: "380px" }}>
+                  <span className={styles.searchIcon}>⌕</span>
+                  <input
+                    value={historySearchQuery}
+                    onChange={(e) => {
+                      setHistorySearchQuery(e.target.value);
+                      setHistoryCurrentPage(1);
+                    }}
+                    placeholder="Cari berdasarkan Batch, B/L, SI, Invoice, atau User..."
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <label className={styles.pageSizeLabel} style={{ color: "#cbd5e1", fontSize: "13px" }}>
+                    <span>Tampilkan</span>
+                    <select
+                      value={historyPageSize}
+                      onChange={(e) => {
+                        setHistoryPageSize(Number(e.target.value));
+                        setHistoryCurrentPage(1);
+                      }}
+                      style={{ background: "#0f172a", color: "#f8fafc", border: "1px solid #334155", padding: "4px 8px", borderRadius: "6px" }}
                     >
-                      <strong>{item.document_batch ?? item.id}</strong>
-                      <span>{item.si_number ?? "-"} | {item.bl_number ?? "-"} | {item.invoice_number ?? "-"}</span>
-                      <span>{item.issue_date ? formatDateLong(item.issue_date) : "-"}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className={styles.emptyState}>Belum ada history cloud untuk ditampilkan.</div>
-                )}
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                    </select>
+                    <span>entri</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* History Table */}
+              <div style={{ overflowX: "auto", border: "1px solid #334155", borderRadius: "12px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", color: "#f8fafc", fontSize: "14px", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ background: "#1e293b", borderBottom: "2px solid #334155" }}>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8" }}>Batch ID</th>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8" }}>Nomor Dokumen</th>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8" }}>Data yang Diubah</th>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8" }}>User / Pengubah</th>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8" }}>Waktu Perubahan</th>
+                      <th style={{ padding: "12px 16px", color: "#94a3b8", textAlign: "center" }}>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedHistory.length > 0 ? (
+                      pagedHistory.map((item, idx) => (
+                        <tr key={item.id} style={{ borderBottom: "1px solid #1e293b", background: idx % 2 === 0 ? "transparent" : "rgba(30, 41, 59, 0.4)" }}>
+                          <td style={{ padding: "12px 16px", fontWeight: "bold", color: "#38bdf8" }}>{item.document_batch ?? item.id}</td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ fontSize: "13px" }}>
+                              <div><strong>B/L:</strong> {item.bl_number || "-"}</div>
+                              <div><strong>SI:</strong> {item.si_number || "-"}</div>
+                              <div><strong>INV:</strong> {item.invoice_number || "-"}</div>
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ display: "inline-block", background: "#0f172a", border: "1px solid #334155", color: "#e2e8f0", padding: "4px 8px", borderRadius: "6px", fontSize: "12px" }}>
+                              {item.bl_number ? "Header B/L, Shipper & Consignee, Routing, Cargo Summary" : "Shipment Batch & Document Update"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold" }}>
+                              👤 {sessionEmail ?? "Operator (Authenticated)"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", color: "#cbd5e1", fontSize: "13px" }}>
+                            {item.issue_date ? formatDateLong(item.issue_date) : item.updated_at ? formatDateLong(item.updated_at) : "Baru saja"}
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => void loadShipmentById(item.id)}
+                              style={{
+                                background: "#2563eb",
+                                color: "#ffffff",
+                                border: "none",
+                                borderRadius: "8px",
+                                padding: "6px 14px",
+                                fontSize: "13px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                transition: "background 0.2s",
+                              }}
+                            >
+                              👁️ Load Data
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} style={{ padding: "24px", textAlign: "center", color: "#94a3b8" }}>
+                          Tidak ada data history yang cocok dengan pencarian.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "16px" }}>
+                <span style={{ color: "#94a3b8", fontSize: "13px" }}>
+                  Menampilkan {filteredHistory.length > 0 ? (historyCurrentPage - 1) * historyPageSize + 1 : 0} - {Math.min(historyCurrentPage * historyPageSize, filteredHistory.length)} dari {filteredHistory.length} data
+                </span>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    disabled={historyCurrentPage <= 1}
+                    onClick={() => setHistoryCurrentPage((prev) => Math.max(1, prev - 1))}
+                    className={styles.outlineButton}
+                    style={{ opacity: historyCurrentPage <= 1 ? 0.5 : 1, padding: "6px 12px" }}
+                  >
+                    ◀ Prev
+                  </button>
+                  <span style={{ display: "flex", alignItems: "center", padding: "0 12px", color: "#f8fafc", fontSize: "13px" }}>
+                    Halaman {historyCurrentPage} dari {historyTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={historyCurrentPage >= historyTotalPages}
+                    onClick={() => setHistoryCurrentPage((prev) => Math.min(historyTotalPages, prev + 1))}
+                    className={styles.outlineButton}
+                    style={{ opacity: historyCurrentPage >= historyTotalPages ? 0.5 : 1, padding: "6px 12px" }}
+                  >
+                    Next ▶
+                  </button>
+                </div>
               </div>
             </section>
           </section>
