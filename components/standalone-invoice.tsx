@@ -29,7 +29,7 @@ export function StandaloneInvoiceModule({
   onNewInvoice,
   onDeleteInvoice,
 }: StandaloneInvoiceProps) {
-  const [tab, setTab] = useState<"editor" | "preview" | "rekap" | "customers">("editor");
+  const [tab, setTab] = useState<"rekap" | "editor" | "preview" | "customers">("rekap");
 
   // Financial calculations
   const subtotal = useMemo(() => {
@@ -96,11 +96,23 @@ export function StandaloneInvoiceModule({
     window.print();
   }
 
+  function handleCreateNew() {
+    onNewInvoice();
+    setTab("editor");
+  }
+
   return (
     <div className={styles.editorStack}>
       {/* Top Module Sub-Nav & Actions */}
       <div className={styles.editorHeader}>
         <div className={styles.tabsNav} style={{ margin: 0 }}>
+          <button
+            className={`${styles.tabButton} ${tab === "rekap" ? styles.tabActive : ""}`}
+            onClick={() => setTab("rekap")}
+            type="button"
+          >
+            Invoice List & Rekap ({savedInvoices.length})
+          </button>
           <button
             className={`${styles.tabButton} ${tab === "editor" ? styles.tabActive : ""}`}
             onClick={() => setTab("editor")}
@@ -116,13 +128,6 @@ export function StandaloneInvoiceModule({
             Invoice Preview & Print
           </button>
           <button
-            className={`${styles.tabButton} ${tab === "rekap" ? styles.tabActive : ""}`}
-            onClick={() => setTab("rekap")}
-            type="button"
-          >
-            Rekap Invoice ({savedInvoices.length})
-          </button>
-          <button
             className={`${styles.tabButton} ${tab === "customers" ? styles.tabActive : ""}`}
             onClick={() => setTab("customers")}
             type="button"
@@ -132,12 +137,14 @@ export function StandaloneInvoiceModule({
         </div>
 
         <div className={styles.actionGroup}>
-          <button className={styles.outlineButton} onClick={onNewInvoice} type="button">
-            + New Invoice
+          <button className={styles.primaryButton} onClick={handleCreateNew} type="button">
+            + Create New Invoice
           </button>
-          <button className={styles.successButton} onClick={onSaveInvoice} type="button">
-            Save Invoice
-          </button>
+          {tab === "editor" && (
+            <button className={styles.successButton} onClick={onSaveInvoice} type="button">
+              Save Invoice
+            </button>
+          )}
           {tab === "preview" && (
             <button className={styles.primaryButton} onClick={printInvoice} type="button">
               🖨️ Print Invoice
@@ -148,9 +155,18 @@ export function StandaloneInvoiceModule({
 
       {tab === "editor" && (
         <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h3>Standalone Invoice Editor</h3>
-            <p>Sama persis dengan template `Invoice 001` PT. Bhumi Selaras Mitra.</p>
+          <div className={styles.panelHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h3>Standalone Invoice Editor</h3>
+              <p>Sama persis dengan template `Invoice 001` PT. Bhumi Selaras Mitra.</p>
+            </div>
+            <button
+              className={styles.outlineButton}
+              onClick={() => setTab("rekap")}
+              type="button"
+            >
+              ← Back to Invoice List
+            </button>
           </div>
 
           <h4 style={{ color: "#93c5fd", marginBottom: 12 }}>Invoice Header & Metadata</h4>
