@@ -809,54 +809,124 @@ export function Workspace() {
             </div>
 
             <section className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <h3>Shipment List</h3>
-                <p>{cloudStatus}</p>
+              <div className={styles.panelHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+                <div>
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#f8fafc", margin: 0 }}>Shipment List</h3>
+                </div>
+                <span style={{ fontSize: "13px", color: "#38bdf8", fontWeight: 600, background: "rgba(56, 189, 248, 0.1)", padding: "4px 12px", borderRadius: "20px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
+                  {cloudStatus}
+                </span>
               </div>
-              <div className={styles.listHeader}>
-                <span>B/L Number</span>
-                <span>SI / Invoice Ref</span>
-                <span>Shipment Batch</span>
-                <span>Issue Date</span>
-                <span>Actions</span>
-              </div>
-              <div className={styles.listBody}>
-                {pagedShipments.length ? (
-                  pagedShipments.map((item) => (
-                    <div key={item.id} className={styles.listRow}>
-                      <span className={styles.listPrimary}>{item.bl_number ?? "-"}</span>
-                      <span>{item.si_number ?? "-"} / {item.invoice_number ?? "-"}</span>
-                      <span>{item.document_batch ?? "-"}</span>
-                      <span>{item.issue_date ? formatDateLong(item.issue_date) : "-"}</span>
-                      <div className={styles.rowActions}>
-                        <button className={styles.inlineButton} onClick={() => void loadShipmentById(item.id)} type="button">
-                          Open
-                        </button>
-                        <button
-                          className={styles.inlineButton}
-                          onClick={() => {
-                            void loadShipmentById(item.id);
-                            setActiveView("editor");
-                            setEditorTab("preview");
-                          }}
-                          type="button"
-                        >
-                          Preview
-                        </button>
-                        <button
-                          className={styles.inlineButton}
-                          onClick={() => void deleteShipmentBatch(item.id, item.document_batch || item.bl_number || item.id)}
-                          type="button"
-                          style={{ background: "#dc2626", color: "#ffffff", borderColor: "#dc2626" }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className={styles.emptyState}>No shipment found yet.</div>
-                )}
+
+              <div style={{ overflowX: "auto", borderRadius: "8px", border: "1px solid #334155", background: "#0b0f19" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", color: "#f8fafc", whiteSpace: "nowrap" }}>
+                  <thead>
+                    <tr style={{ background: "#1e293b" }}>
+                      <th style={{ padding: "14px 16px", border: "1px solid #334155", color: "#ffffff", fontWeight: 700, fontSize: "14px", textAlign: "left", letterSpacing: "0.05em" }}>B/L NUMBER</th>
+                      <th style={{ padding: "14px 16px", border: "1px solid #334155", color: "#ffffff", fontWeight: 700, fontSize: "14px", textAlign: "left", letterSpacing: "0.05em" }}>SI / INVOICE REF</th>
+                      <th style={{ padding: "14px 16px", border: "1px solid #334155", color: "#ffffff", fontWeight: 700, fontSize: "14px", textAlign: "left", letterSpacing: "0.05em" }}>SHIPMENT BATCH</th>
+                      <th style={{ padding: "14px 16px", border: "1px solid #334155", color: "#ffffff", fontWeight: 700, fontSize: "14px", textAlign: "left", letterSpacing: "0.05em" }}>ISSUE DATE</th>
+                      <th style={{ padding: "14px 16px", border: "1px solid #334155", color: "#ffffff", fontWeight: 700, fontSize: "14px", textAlign: "center", width: "140px", letterSpacing: "0.05em" }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedShipments.length ? (
+                      pagedShipments.map((item, idx) => (
+                        <tr key={item.id} style={{ background: idx % 2 === 0 ? "#0f172a" : "#131c2e" }}>
+                          <td style={{ padding: "14px 16px", border: "1px solid #334155", fontWeight: 700, color: "#60a5fa" }}>
+                            {item.bl_number ?? "-"}
+                          </td>
+                          <td style={{ padding: "14px 16px", border: "1px solid #334155", color: "#cbd5e1" }}>
+                            {item.si_number ?? "-"} / {item.invoice_number ?? "-"}
+                          </td>
+                          <td style={{ padding: "14px 16px", border: "1px solid #334155", color: "#e2e8f0" }}>
+                            {item.document_batch ?? "-"}
+                          </td>
+                          <td style={{ padding: "14px 16px", border: "1px solid #334155", color: "#cbd5e1" }}>
+                            {item.issue_date ? formatDateLong(item.issue_date) : "-"}
+                          </td>
+                          <td style={{ padding: "10px 14px", border: "1px solid #334155", textAlign: "center" }}>
+                            <div style={{ display: "flex", gap: "8px", justifyContent: "center", alignItems: "center" }}>
+                              <button
+                                title="Open / Edit Document"
+                                style={{
+                                  background: "#2563eb",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  padding: "8px 12px",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 600,
+                                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                }}
+                                onClick={() => void loadShipmentById(item.id)}
+                                type="button"
+                              >
+                                <span>📂</span>
+                              </button>
+                              <button
+                                title="Preview & Print B/L"
+                                style={{
+                                  background: "#0284c7",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  padding: "8px 12px",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 600,
+                                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                }}
+                                onClick={() => {
+                                  void loadShipmentById(item.id);
+                                  setActiveView("editor");
+                                  setEditorTab("preview");
+                                }}
+                                type="button"
+                              >
+                                <span>👁️</span>
+                              </button>
+                              <button
+                                title="Hapus Shipment Batch"
+                                style={{
+                                  background: "#dc2626",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  padding: "8px 12px",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 600,
+                                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                }}
+                                onClick={() => void deleteShipmentBatch(item.id, item.document_batch || item.bl_number || item.id)}
+                                type="button"
+                              >
+                                <span>🗑️</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} style={{ padding: "32px", textAlign: "center", color: "#94a3b8", border: "1px solid #334155" }}>
+                          Belum ada data shipment tersimpan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
               <div className={styles.paginationBar}>
                 <button
