@@ -1234,9 +1234,18 @@
   .panel,
   .previewPaper {
     background: white !important;
-    color: black !important;
+    color: #000000 !important;
     box-shadow: none !important;
     border: 0 !important;
+  }
+
+  .invoicePrintContainer,
+  .invoicePrintContainer *,
+  .previewPaper * {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .viewSection {
