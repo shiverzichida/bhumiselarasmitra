@@ -29,7 +29,7 @@ export function Workspace() {
   const [activeDoc, setActiveDoc] = useState<ActiveDoc>("si");
   const router = useRouter();
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
-  const [authStatus, setAuthStatus] = useState("Checking session...");
+  const [authStatus, setAuthStatus] = useState("Memeriksa sesi login...");
   const [cloudStatus, setCloudStatus] = useState("Login dulu untuk memuat data dari Supabase.");
   const [cloudShipments, setCloudShipments] = useState<ShipmentListItem[]>([]);
   const [isBusy, setIsBusy] = useState(false);
@@ -116,7 +116,7 @@ export function Workspace() {
       setSessionEmail(email);
       setAuthStatus(email ? `Logged in as ${email}` : "Belum login.");
       if (email) {
-        void refreshCloudShipments();
+        void refreshCloudShipments(email);
       }
     });
 
@@ -125,7 +125,7 @@ export function Workspace() {
       setSessionEmail(email);
       setAuthStatus(email ? `Logged in as ${email}` : "Belum login.");
       if (email) {
-        void refreshCloudShipments();
+        void refreshCloudShipments(email);
       } else {
         setCloudShipments([]);
         setCloudStatus("Login dulu untuk memuat data dari Supabase.");
@@ -148,7 +148,7 @@ export function Workspace() {
 
     return [
       { label: "Total Shipment", value: String(total), tone: "blue" },
-      { label: "Cloud Drafts", value: String(collectCount), tone: "green" },
+      { label: "Saved Drafts", value: String(collectCount), tone: "green" },
       { label: "Latest Issue", value: lastIssue, tone: "amber" },
     ];
   }, [cloudShipments]);
@@ -423,20 +423,37 @@ export function Workspace() {
     router.replace("/login");
   }
 
-  async function refreshCloudShipments() {
-    if (!sessionEmail) return;
-    setCloudStatus("Loading shipments from cloud...");
-    const { data, error } = await db
+  async function refreshCloudShipments(overrideEmail?: string | null) {
+    const activeEmail = overrideEmail ?? sessionEmail;
+    if (!activeEmail && supabase) return;
+    setCloudStatus("Memuat daftar shipment...");
+    let { data, error } = await db
       .from("shipments")
       .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at")
       .order("updated_at", { ascending: false })
-      .limit(20);
+      .limit(50);
+
+    if (error && (error.message.includes("JWT") || error.message.includes("jwt"))) {
+      try {
+        if (supabase) await supabase.auth.refreshSession();
+        const retryRes = await db
+          .from("shipments")
+          .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(50);
+        data = retryRes.data;
+        error = retryRes.error;
+      } catch {
+        // Continue
+      }
+    }
+
     if (error) {
-      setCloudStatus(`Load cloud failed: ${error.message}`);
+      setCloudStatus(`Gagal memuat data: ${error.message}`);
       return;
     }
     setCloudShipments((data ?? []) as ShipmentListItem[]);
-    setCloudStatus(`${data?.length ?? 0} shipment loaded from Supabase.`);
+    setCloudStatus(`${data?.length ?? 0} shipment tersimpan.`);
   }
 
   async function saveToCloud() {
@@ -529,9 +546,43 @@ export function Workspace() {
     if (insertError) throw insertError;
   }
 
+  async function deleteShipmentBatch(shipmentId: string, batchName?: string) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus shipment batch ${batchName || shipmentId}?`)) return;
+
+    setIsBusy(true);
+    setCloudStatus("Menghapus shipment...");
+
+    try {
+      if (supabase) {
+        await db.from("shipment_containers").delete().eq("shipment_id", shipmentId);
+        await db.from("shipment_cargo_items").delete().eq("shipment_id", shipmentId);
+        await db.from("invoice_items").delete().eq("shipment_id", shipmentId);
+        const { error } = await db.from("shipments").delete().eq("id", shipmentId);
+        if (error) throw error;
+      }
+
+      setCloudShipments((prev) => prev.filter((item) => item.id !== shipmentId));
+      setLocalHistoryLogs((prev) => prev.filter((item) => item.id !== shipmentId));
+
+      addHistoryLog({
+        batch: batchName || shipmentId,
+        si: "",
+        bl: "",
+        invoice: "",
+        changedFields: `Hapus Shipment Batch (${batchName || shipmentId})`,
+      });
+
+      setCloudStatus(`Shipment ${batchName || shipmentId} berhasil dihapus.`);
+    } catch (err) {
+      setCloudStatus(`Hapus gagal: ${(err as Error).message}`);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function loadShipmentById(shipmentId: string) {
-    setCloudStatus("Loading shipment detail...");
-    const [{ data: shipment, error: shipmentError }, { data: containers, error: containersError }, { data: cargoItems, error: cargoError }, { data: invoiceItems, error: invoiceError }] =
+    setCloudStatus("Memuat detail shipment...");
+    let [{ data: shipment, error: shipmentError }, { data: containers, error: containersError }, { data: cargoItems, error: cargoError }, { data: invoiceItems, error: invoiceError }] =
       await Promise.all([
         db.from("shipments").select("*").eq("id", shipmentId).single(),
         db.from("shipment_containers").select("*").eq("shipment_id", shipmentId).order("sort_order", { ascending: true }),
@@ -539,7 +590,30 @@ export function Workspace() {
         db.from("invoice_items").select("*").eq("shipment_id", shipmentId).order("sort_order", { ascending: true }),
       ]);
 
-    const failedError = shipmentError ?? containersError ?? cargoError ?? invoiceError;
+    let failedError = shipmentError ?? containersError ?? cargoError ?? invoiceError;
+
+    // Retry once if JWT timestamp skew occurs (e.g. JWT issued at future)
+    if (failedError && (failedError.message.includes("JWT") || failedError.message.includes("jwt"))) {
+      try {
+        if (supabase) {
+          await supabase.auth.refreshSession();
+        }
+        const [res1, res2, res3, res4] = await Promise.all([
+          db.from("shipments").select("*").eq("id", shipmentId).single(),
+          db.from("shipment_containers").select("*").eq("shipment_id", shipmentId).order("sort_order", { ascending: true }),
+          db.from("shipment_cargo_items").select("*").eq("shipment_id", shipmentId).order("sort_order", { ascending: true }),
+          db.from("invoice_items").select("*").eq("shipment_id", shipmentId).order("sort_order", { ascending: true }),
+        ]);
+        shipment = res1.data;
+        containers = res2.data;
+        cargoItems = res3.data;
+        invoiceItems = res4.data;
+        failedError = res1.error ?? res2.error ?? res3.error ?? res4.error;
+      } catch {
+        // Continue to error handling if retry also fails
+      }
+    }
+
     if (failedError) {
       setCloudStatus(`Load detail failed: ${failedError.message}`);
       return;
@@ -553,7 +627,7 @@ export function Workspace() {
         (invoiceItems ?? []) as Record<string, string | number | null>[],
       ),
     );
-    setCloudStatus("Shipment loaded from cloud.");
+    setCloudStatus("Shipment berhasil dimuat.");
     setActiveView("editor");
     setEditorTab("general");
   }
@@ -563,7 +637,7 @@ export function Workspace() {
       await refreshCloudShipments();
     }
     if (!cloudShipments[0]) {
-      setCloudStatus("Belum ada shipment di cloud.");
+      setCloudStatus("Belum ada shipment tersimpan.");
       return;
     }
     await loadShipmentById(cloudShipments[0].id);
@@ -728,9 +802,6 @@ export function Workspace() {
                 </button>
               </div>
               <div className={styles.actionGroup}>
-                <button className={styles.outlineButton} onClick={() => void refreshCloudShipments()} type="button">
-                  Refresh Cloud
-                </button>
                 <button className={styles.outlineButton} onClick={() => void loadLatestCloud()} type="button">
                   Load Latest
                 </button>
@@ -739,7 +810,7 @@ export function Workspace() {
 
             <section className={styles.panel}>
               <div className={styles.panelHeader}>
-                <h3>Cloud Shipment List</h3>
+                <h3>Shipment List</h3>
                 <p>{cloudStatus}</p>
               </div>
               <div className={styles.listHeader}>
@@ -772,11 +843,19 @@ export function Workspace() {
                         >
                           Preview
                         </button>
+                        <button
+                          className={styles.inlineButton}
+                          onClick={() => void deleteShipmentBatch(item.id, item.document_batch || item.bl_number || item.id)}
+                          type="button"
+                          style={{ background: "#dc2626", color: "#ffffff", borderColor: "#dc2626" }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className={styles.emptyState}>No cloud shipment found yet.</div>
+                  <div className={styles.emptyState}>No shipment found yet.</div>
                 )}
               </div>
               <div className={styles.paginationBar}>
