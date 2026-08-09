@@ -20,7 +20,7 @@ export function LoginPage() {
     if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        router.replace("/");
+        router.replace("/system-bl");
       }
     });
   }, [router]);
@@ -42,7 +42,7 @@ export function LoginPage() {
       return;
     }
     setStatus("Login berhasil. Mengarahkan ke dashboard...");
-    router.replace("/");
+    router.replace("/system-bl");
   }
 
   async function registerDemoUser() {
@@ -66,7 +66,7 @@ export function LoginPage() {
       return;
     }
     setStatus("Demo user siap dipakai. Mengarahkan ke dashboard...");
-    router.replace("/");
+    router.replace("/system-bl");
   }
 
   return (

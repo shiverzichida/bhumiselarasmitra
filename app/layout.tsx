@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Bhumi Docs Workspace",
-  description: "Production-ready shipment document workspace for Bill of Lading, Shipping Instruction, and Invoice.",
+  title: "PT. Bhumi Selaras Mitra | Forwarding Terminal Kijing Mempawah",
+  description: "Layanan trucking, dokumen ekspor-impor, customs clearance, stuffing, dan forwarding kontainer dari Terminal Kijing, Pelabuhan Mempawah.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
