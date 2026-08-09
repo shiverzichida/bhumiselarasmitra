@@ -14,7 +14,7 @@ export function AppGate() {
 
   useEffect(() => {
     if (!supabase) {
-      router.replace("/login");
+      router.replace("/system-bl/login");
       return;
     }
 
@@ -23,7 +23,7 @@ export function AppGate() {
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (!data.session) {
-        router.replace("/login");
+        router.replace("/system-bl/login");
         return;
       }
       setStatus("ready");
@@ -31,7 +31,7 @@ export function AppGate() {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        router.replace("/login");
+        router.replace("/system-bl/login");
       }
     });
 

@@ -102,7 +102,7 @@ export function Workspace() {
     if (!supabase) {
       setAuthStatus("Supabase belum dikonfigurasi.");
       setCloudStatus("Tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.");
-      router.replace("/login");
+      router.replace("/system-bl/login");
       return;
     }
 
@@ -129,7 +129,7 @@ export function Workspace() {
       } else {
         setCloudShipments([]);
         setCloudStatus("Login dulu untuk memuat data dari Supabase.");
-        router.replace("/login");
+        router.replace("/system-bl/login");
       }
     });
 
@@ -415,12 +415,12 @@ export function Workspace() {
 
   async function signOut() {
     if (!supabase) {
-      router.replace("/login");
+      router.replace("/system-bl/login");
       return;
     }
     await supabase.auth.signOut();
     setAuthStatus("Logged out.");
-    router.replace("/login");
+    router.replace("/system-bl/login");
   }
 
   async function refreshCloudShipments(overrideEmail?: string | null) {
@@ -959,7 +959,7 @@ export function Workspace() {
                 )}
               </div>
               <p className={styles.panelNote}>{authStatus}</p>
-              <p className={styles.panelNote}>Login sekarang memakai halaman terpisah di `/login` seperti aplikasi produksi.</p>
+              <p className={styles.panelNote}>Login operasional tersedia melalui jalur internal `/system-bl/login`.</p>
             </section>
           </section>
         ) : activeView === "invoice" ? (
