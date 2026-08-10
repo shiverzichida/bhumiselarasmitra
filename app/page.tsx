@@ -31,7 +31,7 @@ export default function HomePage() {
   return (
     <main className={styles.site}>
       <section className={styles.hero} id="beranda">
-        <Image className={styles.heroImage} src="/hero-kijing-sunset.png" alt="Terminal Kijing saat senja" fill priority sizes="100vw" />
+        <Image className={styles.heroImage} src="/hero-kijing-sunset.webp" alt="Terminal Kijing saat senja" fill priority sizes="100vw" />
         <div className={styles.heroShade} />
         <header className={styles.header}>
           <a className={styles.logo} href="#beranda"><Image src="/logo-bsm-dark-bg.png" alt="PT Bhumi Selaras Mitra" width={450} height={190} priority /></a>
@@ -64,11 +64,11 @@ export default function HomePage() {
       </section>
 
       <section className={styles.services} id="layanan">
-        <div className={styles.sectionTitle}><p className="services-label">LAYANAN KAMI</p><span>Kami menyediakan berbagai layanan forwarding yang terintegrasi<br />dan disesuaikan dengan kebutuhan bisnis Anda.</span></div>
+        <div className={styles.sectionTitle}><h2 className="services-label">LAYANAN KAMI</h2><span>Kami menyediakan berbagai layanan forwarding yang terintegrasi<br />dan disesuaikan dengan kebutuhan bisnis Anda.</span></div>
         <div className={styles.cardGrid}>
           {services.map((service) => (
             <article className={`${styles.card} service-card`} key={service.title}>
-              <div className={styles.cardPhoto}><Image src={service.image} alt={service.title} fill sizes="(max-width: 720px) 100vw, 33vw" loading="eager" /></div>
+              <div className={styles.cardPhoto}><Image src={service.image} alt={service.title} fill sizes="(max-width: 720px) 100vw, 33vw" /></div>
               <div className={styles.cardBody}><div className={styles.serviceIcon}>{service.icon}</div><h3>{service.title}</h3><ul>{service.items.map((item) => <li key={item}>{item}</li>)}</ul></div>
             </article>
           ))}
@@ -82,14 +82,14 @@ export default function HomePage() {
           <div className="media-grid">
             {activityMedia.map(([src, alt, caption], index) => (
               <figure className={index === 0 || index === 7 ? "media-item media-featured" : "media-item"} key={src}>
-                <Image src={src} alt={alt} fill sizes="(max-width: 700px) 100vw, 25vw" loading="eager" />
+                <Image src={src} alt={alt} fill sizes="(max-width: 700px) 100vw, 25vw" />
                 <figcaption><small>{String(index + 1).padStart(2, "0")}</small><strong>{caption}</strong></figcaption>
               </figure>
             ))}
           </div>
           <div className="video-grid">
-            <article><div className="video-label"><span>01</span><strong>Perjalanan Operasional</strong></div><video controls preload="metadata" poster="/media/activity-02.jpg"><source src="/media/operations-01.mp4" type="video/mp4" />Browser Anda tidak mendukung video.</video></article>
-            <article><div className="video-label"><span>02</span><strong>Handling Kontainer</strong></div><video controls preload="metadata" poster="/media/activity-06.jpg"><source src="/media/operations-02.mp4" type="video/mp4" />Browser Anda tidak mendukung video.</video></article>
+            <article><div className="video-label"><span>01</span><strong>Perjalanan Operasional</strong></div><video controls preload="none" poster="/media/video-poster-01.webp"><source src="/media/operations-01.mp4" type="video/mp4" /><track kind="captions" src="/media/operations-01-id.vtt" srcLang="id" label="Bahasa Indonesia" />Browser Anda tidak mendukung video.</video></article>
+            <article><div className="video-label"><span>02</span><strong>Handling Kontainer</strong></div><video controls preload="none" poster="/media/video-poster-02.webp"><source src="/media/operations-02.mp4" type="video/mp4" /><track kind="captions" src="/media/operations-02-id.vtt" srcLang="id" label="Bahasa Indonesia" />Browser Anda tidak mendukung video.</video></article>
           </div>
         </section>
 

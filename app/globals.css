@@ -157,7 +157,7 @@ header > nav[aria-label="Navigasi utama"] a {
 }
 
 .services-label {
-  margin-bottom: 20px !important;
+  margin: 0 0 20px !important;
   color: #ffffff !important;
   font-size: clamp(27px, 3vw, 40px) !important;
   font-weight: 800 !important;
