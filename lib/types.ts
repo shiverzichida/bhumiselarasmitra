@@ -28,6 +28,7 @@ export type InvoiceItemRow = {
 
 export type ShipmentDraft = {
   id: string | null;
+  updatedAt: string | null;
   documentBatch: string;
   siNumber: string;
   blNumber: string;
@@ -75,6 +76,9 @@ export type ShipmentListItem = {
   updated_at?: string | null;
   user_email?: string | null;
   changed_fields?: string | null;
+  shipment_id?: string | null;
+  operation?: string | null;
+  source_table?: string | null;
 };
 
 export type CustomerMaster = {
@@ -109,4 +113,3 @@ export type StandaloneInvoice = {
   bankAccountNumber: string;
   signerName: string;
 };
-

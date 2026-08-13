@@ -4,6 +4,7 @@ export const STORAGE_KEY = "bhumi-docs-draft-v3";
 
 export const sampleDraft: ShipmentDraft = {
   id: null,
+  updatedAt: null,
   documentBatch: "BSM/EXPORT/VII/2026/038",
   siNumber: "38/BSM/SI/VII/26",
   blNumber: "BSMKIJ250723001",
@@ -196,4 +197,3 @@ export const sampleStandaloneInvoice: import("./types").StandaloneInvoice = {
   bankAccountNumber: "414-2485-676",
   signerName: "Ari Wahyudi",
 };
-

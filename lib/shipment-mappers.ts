@@ -46,6 +46,7 @@ export function mapShipmentToState(
 ): ShipmentDraft {
   return mergeWithSample({
     id: shipment.id ?? null,
+    updatedAt: shipment.updated_at ?? null,
     documentBatch: shipment.document_batch ?? "",
     siNumber: shipment.si_number ?? "",
     blNumber: shipment.bl_number ?? "",

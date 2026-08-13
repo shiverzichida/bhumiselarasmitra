@@ -49,6 +49,7 @@ export function Workspace() {
   const [historyPageSize, setHistoryPageSize] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
   const [localHistoryLogs, setLocalHistoryLogs] = useState<ShipmentListItem[]>([]);
+  const [serverHistoryLogs, setServerHistoryLogs] = useState<ShipmentListItem[]>([]);
 
 
   useEffect(() => {
@@ -197,7 +198,7 @@ export function Workspace() {
   }
 
   const combinedHistory = useMemo(() => {
-    const list: ShipmentListItem[] = [...localHistoryLogs];
+    const list: ShipmentListItem[] = [...serverHistoryLogs, ...localHistoryLogs];
 
     cloudShipments.forEach((item) => {
       if (!list.some((existing) => existing.id === item.id)) {
@@ -214,7 +215,7 @@ export function Workspace() {
       const timeB = new Date(b.updated_at || b.issue_date || 0).getTime();
       return timeB - timeA;
     });
-  }, [localHistoryLogs, cloudShipments, sessionEmail]);
+  }, [serverHistoryLogs, localHistoryLogs, cloudShipments, sessionEmail]);
 
   const filteredHistory = useMemo(() => {
     const q = historySearchQuery.trim().toLowerCase();
@@ -454,6 +455,35 @@ export function Workspace() {
     }
     setCloudShipments((data ?? []) as ShipmentListItem[]);
     setCloudStatus(`${data?.length ?? 0} shipment tersimpan.`);
+    await refreshServerHistory((data ?? []) as ShipmentListItem[]);
+  }
+
+  async function refreshServerHistory(shipments: ShipmentListItem[] = cloudShipments) {
+    const { data, error } = await db
+      .from("shipment_audit_logs")
+      .select("id, shipment_id, actor_email, source_table, operation, changed_at, before_data, after_data")
+      .order("changed_at", { ascending: false })
+      .limit(100);
+    if (error) return;
+    const shipmentById = new Map(shipments.map((item) => [item.id, item]));
+    setServerHistoryLogs((data ?? []).map((entry: any) => {
+      const snapshot = entry.after_data ?? entry.before_data ?? {};
+      const shipment = shipmentById.get(entry.shipment_id);
+      return {
+        id: `audit_${entry.id}`,
+        shipment_id: entry.shipment_id,
+        document_batch: snapshot.document_batch ?? shipment?.document_batch ?? entry.shipment_id,
+        si_number: snapshot.si_number ?? shipment?.si_number ?? null,
+        bl_number: snapshot.bl_number ?? shipment?.bl_number ?? null,
+        invoice_number: snapshot.invoice_number ?? shipment?.invoice_number ?? null,
+        issue_date: entry.changed_at,
+        updated_at: entry.changed_at,
+        user_email: entry.actor_email ?? "Operator Supabase",
+        changed_fields: `${entry.operation} ${entry.source_table}`,
+        operation: entry.operation,
+        source_table: entry.source_table,
+      };
+    }));
   }
 
   async function saveToCloud() {
@@ -464,24 +494,8 @@ export function Workspace() {
     setIsBusy(true);
     setCloudStatus("Saving shipment to Supabase...");
     const shipmentPayload = mapStateToShipmentPayload(draft);
-    let shipmentId = draft.id;
-
     try {
-      if (shipmentId) {
-        const { error } = await db.from("shipments").update(shipmentPayload).eq("id", shipmentId);
-        if (error) throw error;
-      } else {
-        const { data, error } = await db.from("shipments").insert(shipmentPayload).select("id").single();
-        if (error) throw error;
-        shipmentId = data.id as string;
-        setDraft((current) => ({ ...current, id: shipmentId }));
-      }
-
-      await replaceChildRows(
-        "shipment_containers",
-        shipmentId,
-        draft.containers.map((row, index) => ({
-          shipment_id: shipmentId,
+      const containers = draft.containers.map((row, index) => ({
           container_number: row.containerNumber,
           seal_number: row.sealNumber,
           container_type: row.type,
@@ -489,14 +503,8 @@ export function Workspace() {
           net_weight: row.netWeight,
           measurement: row.measurement,
           sort_order: index,
-        })),
-      );
-
-      await replaceChildRows(
-        "shipment_cargo_items",
-        shipmentId,
-        draft.cargo.map((row, index) => ({
-          shipment_id: shipmentId,
+        }));
+      const cargoItems = draft.cargo.map((row, index) => ({
           marks: row.marks,
           description: row.description,
           packages: row.packages,
@@ -504,21 +512,26 @@ export function Workspace() {
           net_weight: row.netWeight,
           measurement: row.measurement,
           sort_order: index,
-        })),
-      );
-
-      await replaceChildRows(
-        "invoice_items",
-        shipmentId,
-        draft.invoiceItems.map((row, index) => ({
-          shipment_id: shipmentId,
+        }));
+      const invoiceItems = draft.invoiceItems.map((row, index) => ({
           description: row.description,
           quantity: Number(row.quantity || 0),
           unit: row.unit,
           unit_price: Number(row.unitPrice || 0),
           sort_order: index,
-        })),
-      );
+        }));
+      const { data, error } = await db.rpc("save_shipment_atomic", {
+        p_shipment_id: draft.id,
+        p_expected_updated_at: draft.updatedAt,
+        p_shipment: shipmentPayload,
+        p_containers: containers,
+        p_cargo_items: cargoItems,
+        p_invoice_items: invoiceItems,
+      });
+      if (error) throw error;
+      const saved = data?.[0];
+      if (!saved) throw new Error("Supabase tidak mengembalikan hasil penyimpanan.");
+      setDraft((current) => ({ ...current, id: saved.id, updatedAt: saved.updated_at }));
 
       saveDraftLocal();
       addHistoryLog({
@@ -528,22 +541,21 @@ export function Workspace() {
         invoice: draft.invoiceNumber || "-",
         changedFields: `Sinkronisasi Cloud Supabase (Batch: ${draft.documentBatch}, B/L: ${draft.blNumber || "-"})`,
       });
-      setCloudStatus(`Shipment ${draft.documentBatch} saved to Supabase.`);
+      setCloudStatus(`Shipment ${draft.documentBatch} tersimpan aman ke Supabase.`);
       await refreshCloudShipments();
       setActiveView("dashboard");
     } catch (error) {
-      setCloudStatus(`Save failed: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      if (message.includes("SAVE_CONFLICT")) {
+        setCloudStatus("Konflik terdeteksi: data sudah diubah perangkat lain. Muat ulang shipment sebelum menyimpan lagi.");
+      } else if (message.includes("DUPLICATE_BL")) {
+        setCloudStatus("Nomor B/L sudah digunakan shipment lain. Buka record yang ada atau gunakan nomor berbeda.");
+      } else {
+        setCloudStatus(`Save failed: ${message}`);
+      }
     } finally {
       setIsBusy(false);
     }
-  }
-
-  async function replaceChildRows(table: string, shipmentId: string | null, rows: Record<string, string | number | null>[]) {
-    const { error: deleteError } = await db.from(table).delete().eq("shipment_id", shipmentId);
-    if (deleteError) throw deleteError;
-    if (!rows.length) return;
-    const { error: insertError } = await db.from(table).insert(rows);
-    if (insertError) throw insertError;
   }
 
   async function deleteShipmentBatch(shipmentId: string, batchName?: string) {
@@ -1049,12 +1061,12 @@ export function Workspace() {
                           </td>
                           <td style={{ padding: "12px 16px" }}>
                             <span style={{ display: "inline-block", background: "#0f172a", border: "1px solid #334155", color: "#e2e8f0", padding: "4px 8px", borderRadius: "6px", fontSize: "12px" }}>
-                              {item.bl_number ? "Header B/L, Shipper & Consignee, Routing, Cargo Summary" : "Shipment Batch & Document Update"}
+                              {item.changed_fields || (item.bl_number ? "Header B/L, Shipper & Consignee, Routing, Cargo Summary" : "Shipment Batch & Document Update")}
                             </span>
                           </td>
                           <td style={{ padding: "12px 16px" }}>
                             <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold" }}>
-                              👤 {sessionEmail ?? "Operator (Authenticated)"}
+                              👤 {item.user_email ?? sessionEmail ?? "Operator (Authenticated)"}
                             </span>
                           </td>
                           <td style={{ padding: "12px 16px", color: "#cbd5e1", fontSize: "13px" }}>
@@ -1063,7 +1075,7 @@ export function Workspace() {
                           <td style={{ padding: "12px 16px", textAlign: "center" }}>
                             <button
                               type="button"
-                              onClick={() => void loadShipmentById(item.id)}
+                              onClick={() => void loadShipmentById(item.shipment_id ?? item.id)}
                               style={{
                                 background: "#2563eb",
                                 color: "#ffffff",
