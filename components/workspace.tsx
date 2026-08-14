@@ -53,63 +53,16 @@ export function Workspace() {
   const [isDirty, setIsDirty] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState("Autosave siap");
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invoiceDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // History Log States
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyPageSize, setHistoryPageSize] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
-  const [localHistoryLogs, setLocalHistoryLogs] = useState<ShipmentListItem[]>([]);
   const [serverHistoryLogs, setServerHistoryLogs] = useState<ShipmentListItem[]>([]);
 
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        setDraft(mergeWithSample(JSON.parse(saved) as Partial<ShipmentDraft>));
-      } catch {
-        setDraft(sampleDraft);
-      }
-    }
-
-    const savedInv = window.localStorage.getItem(INVOICE_STORAGE_KEY);
-    if (savedInv) {
-      try {
-        setStandaloneInvoice(JSON.parse(savedInv));
-      } catch {
-        setStandaloneInvoice(sampleStandaloneInvoice);
-      }
-    }
-
-    const savedCust = window.localStorage.getItem(CUSTOMERS_STORAGE_KEY);
-    if (savedCust) {
-      try {
-        setCustomers(JSON.parse(savedCust));
-      } catch {
-        setCustomers(sampleCustomers);
-      }
-    }
-
-    const savedList = window.localStorage.getItem(SAVED_INVOICES_KEY);
-    if (savedList) {
-      try {
-        setSavedInvoices(JSON.parse(savedList));
-      } catch {
-        setSavedInvoices([sampleStandaloneInvoice]);
-      }
-    } else {
-      setSavedInvoices([sampleStandaloneInvoice]);
-    }
-
-    const savedHistory = window.localStorage.getItem(LOCAL_HISTORY_LOGS_KEY);
-    if (savedHistory) {
-      try {
-        setLocalHistoryLogs(JSON.parse(savedHistory));
-      } catch {
-        setLocalHistoryLogs([]);
-      }
-    }
-
     if (!supabase) {
       setAuthStatus("Supabase belum dikonfigurasi.");
       setCloudStatus("Tambahkan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.");
@@ -183,34 +136,19 @@ export function Workspace() {
     return filteredShipments.slice(start, start + pageSize);
   }, [filteredShipments, currentPage, pageSize, totalPages]);
 
-  function addHistoryLog(item: {
+  async function addHistoryLog(item: {
     batch: string;
     si: string;
     bl: string;
     invoice: string;
     changedFields: string;
   }) {
-    const newEntry: ShipmentListItem = {
-      id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      document_batch: item.batch || "Local Batch",
-      si_number: item.si || null,
-      bl_number: item.bl || null,
-      invoice_number: item.invoice || null,
-      issue_date: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      user_email: sessionEmail ?? "Operator (Local)",
-      changed_fields: item.changedFields,
-    };
-
-    setLocalHistoryLogs((prev) => {
-      const updated = [newEntry, ...prev].slice(0, 100);
-      window.localStorage.setItem(LOCAL_HISTORY_LOGS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    await db.from("activity_logs").insert({actor_email:sessionEmail,document_batch:item.batch,si_number:item.si,bl_number:item.bl,invoice_number:item.invoice,changed_fields:item.changedFields});
+    await refreshServerHistory(cloudShipments);
   }
 
   const combinedHistory = useMemo(() => {
-    const list: ShipmentListItem[] = [...serverHistoryLogs, ...localHistoryLogs];
+    const list: ShipmentListItem[] = [...serverHistoryLogs];
 
     cloudShipments.forEach((item) => {
       if (!list.some((existing) => existing.id === item.id)) {
@@ -227,7 +165,7 @@ export function Workspace() {
       const timeB = new Date(b.updated_at || b.issue_date || 0).getTime();
       return timeB - timeA;
     });
-  }, [serverHistoryLogs, localHistoryLogs, cloudShipments, sessionEmail]);
+  }, [serverHistoryLogs, cloudShipments, sessionEmail]);
 
   const filteredHistory = useMemo(() => {
     const q = historySearchQuery.trim().toLowerCase();
@@ -284,6 +222,7 @@ export function Workspace() {
   }, [draft, isDirty, sessionEmail, activeView]);
 
   useEffect(() => { if (sessionEmail) void refreshCloudShipments(sessionEmail); }, [showArchived]);
+  useEffect(() => { if (!sessionEmail) return; if(invoiceDraftTimer.current) clearTimeout(invoiceDraftTimer.current); invoiceDraftTimer.current=setTimeout(()=>void saveInvoiceDraft(standaloneInvoice),2000); return()=>{if(invoiceDraftTimer.current)clearTimeout(invoiceDraftTimer.current);}; }, [standaloneInvoice,sessionEmail]);
 
   function updateField<K extends keyof ShipmentDraft>(key: K, value: ShipmentDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -338,16 +277,17 @@ export function Workspace() {
     setIsDirty(true);
   }
 
-  function saveDraftLocal() {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-    addHistoryLog({
+  async function saveDraftLocal() {
+    const { error } = await db.from("user_drafts").upsert({ draft_type:"shipment", payload:draft, updated_at:new Date().toISOString() }, { onConflict:"owner_id,draft_type" });
+    if (error) { setCloudStatus(`Draft gagal disimpan: ${error.message}`); return; }
+    await addHistoryLog({
       batch: draft.documentBatch || "Draft Lokal",
       si: draft.siNumber || "-",
       bl: draft.blNumber || "-",
       invoice: draft.invoiceNumber || "-",
       changedFields: `Draft Disimpan (Shipper: ${draft.shipper ? draft.shipper.slice(0, 18) + "..." : "-"}, Vessel: ${draft.vessel || "-"})`,
     });
-    setCloudStatus("Draft saved locally.");
+    setCloudStatus("Draft tersimpan di Supabase.");
   }
 
   async function handleSaveStandaloneInvoice() {
@@ -382,7 +322,7 @@ export function Workspace() {
 
   function handleLoadStandaloneInvoice(inv: StandaloneInvoice) {
     setStandaloneInvoice(inv);
-    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(inv));
+    void saveInvoiceDraft(inv);
   }
 
   function handleNewStandaloneInvoice() {
@@ -394,7 +334,7 @@ export function Workspace() {
       dueDate: new Date().toISOString().split("T")[0],
     };
     setStandaloneInvoice(newInv);
-    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(newInv));
+    void saveInvoiceDraft(newInv);
   }
 
   function handleSuggestBLNo() {
@@ -422,10 +362,10 @@ export function Workspace() {
     setCloudStatus("Sample loaded.");
   }
 
-  function resetDraft() {
-    window.localStorage.removeItem(STORAGE_KEY);
+  async function resetDraft() {
+    await db.from("user_drafts").delete().eq("draft_type","shipment");
     setDraft(structuredClone(sampleDraft));
-    setCloudStatus("Draft reset ke sample.");
+    setCloudStatus("Draft cloud direset.");
   }
 
   function exportJson() {
@@ -449,7 +389,23 @@ export function Workspace() {
   }
 
   async function refreshWorkspaceData(overrideEmail?: string | null) {
-    await Promise.all([refreshCloudShipments(overrideEmail), refreshCloudInvoices(), refreshCloudCustomers(), refreshMasterData()]);
+    await migrateLegacyBrowserData();
+    await Promise.all([refreshCloudShipments(overrideEmail), refreshCloudInvoices(), refreshCloudCustomers(), refreshMasterData(), loadCloudDrafts()]);
+  }
+
+  async function saveInvoiceDraft(value:StandaloneInvoice) { await db.from("user_drafts").upsert({draft_type:"standalone_invoice",payload:value,updated_at:new Date().toISOString()},{onConflict:"owner_id,draft_type"}); }
+
+  async function loadCloudDrafts() {
+    const {data}=await db.from("user_drafts").select("draft_type,payload");
+    for(const row of data??[]) { if(row.draft_type==="shipment") setDraft(mergeWithSample(row.payload)); if(row.draft_type==="standalone_invoice") setStandaloneInvoice(row.payload as StandaloneInvoice); }
+  }
+
+  async function migrateLegacyBrowserData() {
+    const shipmentRaw=window.localStorage.getItem(STORAGE_KEY); const invoiceRaw=window.localStorage.getItem(INVOICE_STORAGE_KEY); const historyRaw=window.localStorage.getItem(LOCAL_HISTORY_LOGS_KEY);
+    try { if(shipmentRaw) await db.from("user_drafts").upsert({draft_type:"shipment",payload:JSON.parse(shipmentRaw)},{onConflict:"owner_id,draft_type"}); } catch {}
+    try { if(invoiceRaw) await db.from("user_drafts").upsert({draft_type:"standalone_invoice",payload:JSON.parse(invoiceRaw)},{onConflict:"owner_id,draft_type"}); } catch {}
+    try { if(historyRaw) { const logs=JSON.parse(historyRaw) as ShipmentListItem[]; if(logs.length) await db.from("activity_logs").insert(logs.map(log=>({actor_email:log.user_email,document_batch:log.document_batch,si_number:log.si_number,bl_number:log.bl_number,invoice_number:log.invoice_number,changed_fields:log.changed_fields??"Migrasi history lokal",created_at:log.updated_at??new Date().toISOString()}))); } } catch {}
+    [STORAGE_KEY,INVOICE_STORAGE_KEY,LOCAL_HISTORY_LOGS_KEY].forEach(key=>window.localStorage.removeItem(key));
   }
 
   async function refreshCloudCustomers() {
@@ -536,14 +492,14 @@ export function Workspace() {
   }
 
   async function refreshServerHistory(shipments: ShipmentListItem[] = cloudShipments) {
-    const { data, error } = await db
+    const [{ data, error }, { data: activity }] = await Promise.all([db
       .from("shipment_audit_logs")
       .select("id, shipment_id, actor_email, source_table, operation, changed_at, before_data, after_data")
       .order("changed_at", { ascending: false })
-      .limit(100);
+      .limit(100), db.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(100)]);
     if (error) return;
     const shipmentById = new Map(shipments.map((item) => [item.id, item]));
-    setServerHistoryLogs((data ?? []).map((entry: any) => {
+    const auditRows = (data ?? []).map((entry: any) => {
       const snapshot = entry.after_data ?? entry.before_data ?? {};
       const shipment = shipmentById.get(entry.shipment_id);
       return {
@@ -560,7 +516,9 @@ export function Workspace() {
         operation: entry.operation,
         source_table: entry.source_table,
       };
-    }));
+    });
+    const activityRows = (activity ?? []).map((entry:any)=>({id:`activity_${entry.id}`,document_batch:entry.document_batch,si_number:entry.si_number,bl_number:entry.bl_number,invoice_number:entry.invoice_number,issue_date:entry.created_at,updated_at:entry.created_at,user_email:entry.actor_email,changed_fields:entry.changed_fields}));
+    setServerHistoryLogs([...auditRows,...activityRows].sort((a,b)=>new Date(b.updated_at??0).getTime()-new Date(a.updated_at??0).getTime()).slice(0,100));
   }
 
   async function saveToCloud(silent = false) {
@@ -570,7 +528,7 @@ export function Workspace() {
     }
     setIsBusy(true);
     const issues = validateShipment(draft);
-    if (issues.some((issue) => issue.level === "error")) { setCloudStatus(`Validasi gagal: ${issues.find(issue=>issue.level==="error")?.message}`); setAutoSaveStatus("Autosave tertahan oleh validasi"); return; }
+    if (issues.some((issue) => issue.level === "error")) { setCloudStatus(`Validasi gagal: ${issues.find(issue=>issue.level==="error")?.message}`); setAutoSaveStatus("Autosave tertahan oleh validasi"); setIsBusy(false); return; }
     if (silent) setAutoSaveStatus("Menyimpan otomatis..."); else setCloudStatus("Saving shipment to Supabase...");
     setIsDirty(false);
     const shipmentPayload = mapStateToShipmentPayload(draft);
