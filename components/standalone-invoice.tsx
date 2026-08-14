@@ -18,6 +18,8 @@ interface StandaloneInvoiceProps {
   onLoadInvoice: (inv: StandaloneInvoice) => void;
   onNewInvoice: () => void;
   onDeleteInvoice: (invNo: string) => void;
+  onSaveCustomer: (customer: CustomerMaster) => Promise<void>;
+  onDeleteCustomer: (id: string) => Promise<void>;
 }
 
 export function StandaloneInvoiceModule({
@@ -30,6 +32,8 @@ export function StandaloneInvoiceModule({
   onLoadInvoice,
   onNewInvoice,
   onDeleteInvoice,
+  onSaveCustomer,
+  onDeleteCustomer,
 }: StandaloneInvoiceProps) {
   const [tab, setTab] = useState<"rekap" | "editor" | "preview" | "customers">("rekap");
   const [searchQuery, setSearchQuery] = useState("");
@@ -728,7 +732,7 @@ export function StandaloneInvoiceModule({
       )}
 
       {tab === "customers" && (
-        <CustomerMasterManager customers={customers} setCustomers={setCustomers} />
+        <CustomerMasterManager customers={customers} onSaveCustomer={onSaveCustomer} onDeleteCustomer={onDeleteCustomer} />
       )}
     </div>
   );
@@ -1017,10 +1021,12 @@ export function StandaloneInvoicePrintTemplate({
 
 function CustomerMasterManager({
   customers,
-  setCustomers,
+  onSaveCustomer,
+  onDeleteCustomer,
 }: {
   customers: CustomerMaster[];
-  setCustomers: React.Dispatch<React.SetStateAction<CustomerMaster[]>>;
+  onSaveCustomer: (customer: CustomerMaster) => Promise<void>;
+  onDeleteCustomer: (id: string) => Promise<void>;
 }) {
   const [newCust, setNewCust] = useState<Partial<CustomerMaster>>({
     customerId: "",
@@ -1031,7 +1037,7 @@ function CustomerMasterManager({
     phone: "",
   });
 
-  function addCustomer() {
+  async function addCustomer() {
     if (!newCust.customerId || !newCust.companyName) {
       alert("Customer ID dan Nama Perusahaan wajib diisi!");
       return;
@@ -1045,7 +1051,7 @@ function CustomerMasterManager({
       city: newCust.city || "",
       phone: newCust.phone || "",
     };
-    setCustomers((prev) => [...prev, created]);
+    await onSaveCustomer(created);
     setNewCust({
       customerId: "",
       customerName: "",
@@ -1056,9 +1062,7 @@ function CustomerMasterManager({
     });
   }
 
-  function deleteCustomer(id: string) {
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
-  }
+  async function deleteCustomer(id: string) { await onDeleteCustomer(id); }
 
   return (
     <section className={styles.panel}>

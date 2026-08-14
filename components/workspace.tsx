@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import logoImage from "@/logo-bsm.png";
 import styles from "./workspace.module.css";
@@ -8,12 +8,16 @@ import { formatCurrency, formatDateLong, safeFileName } from "@/lib/format";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { mergeWithSample, sampleDraft, sampleStandaloneInvoice, sampleCustomers, STORAGE_KEY, INVOICE_STORAGE_KEY, CUSTOMERS_STORAGE_KEY } from "@/lib/sample-data";
 import { mapShipmentToState, mapStateToShipmentPayload } from "@/lib/shipment-mappers";
-import type { CargoRow, ContainerRow, CustomerMaster, InvoiceItemRow, ShipmentDraft, ShipmentListItem, StandaloneInvoice } from "@/lib/types";
+import type { CargoRow, ContainerRow, CustomerMaster, InvoiceItemRow, MasterDataItem, ShipmentDraft, ShipmentListItem, StandaloneInvoice } from "@/lib/types";
 import { StandaloneInvoiceModule } from "@/components/standalone-invoice";
 import { generateSuggestedBLNumber, generateSuggestedSINumber } from "@/lib/number-generator";
+import { validateShipment } from "@/lib/validation";
+import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { SystemUpdates } from "@/components/system-updates";
+import { MasterDataPanel } from "@/components/master-data-panel";
 
 
-type ActiveView = "dashboard" | "editor" | "invoice" | "history";
+type ActiveView = "dashboard" | "editor" | "invoice" | "history" | "analytics" | "updates";
 type EditorTab = "general" | "parties" | "routing" | "cargo" | "preview";
 type ActiveDoc = "si" | "bl" | "invoice";
 
@@ -43,6 +47,12 @@ export function Workspace() {
   const [customers, setCustomers] = useState<CustomerMaster[]>(sampleCustomers);
   const [savedInvoices, setSavedInvoices] = useState<StandaloneInvoice[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+  const [isDirty, setIsDirty] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState("Autosave siap");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // History Log States
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -117,7 +127,7 @@ export function Workspace() {
       setSessionEmail(email);
       setAuthStatus(email ? `Logged in as ${email}` : "Belum login.");
       if (email) {
-        void refreshCloudShipments(email);
+        void refreshWorkspaceData(email);
       }
     });
 
@@ -126,7 +136,7 @@ export function Workspace() {
       setSessionEmail(email);
       setAuthStatus(email ? `Logged in as ${email}` : "Belum login.");
       if (email) {
-        void refreshCloudShipments(email);
+        void refreshWorkspaceData(email);
       } else {
         setCloudShipments([]);
         setCloudStatus("Login dulu untuk memuat data dari Supabase.");
@@ -141,6 +151,8 @@ export function Workspace() {
     () => draft.invoiceItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0),
     [draft.invoiceItems],
   );
+  const validationIssues = useMemo(() => validateShipment(draft), [draft]);
+  const masterOptions = (category: MasterDataItem["category"]) => masterData.filter(item => item.category === category).map(item => item.value);
 
   const statCards = useMemo(() => {
     const total = cloudShipments.length;
@@ -263,8 +275,20 @@ export function Workspace() {
     };
   }, []);
 
+  useEffect(() => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    if (!isDirty || !draft.id || !sessionEmail || activeView !== "editor") return;
+    setAutoSaveStatus("Autosave dijadwalkan...");
+    autoSaveTimer.current = setTimeout(() => void saveToCloud(true), 3000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [draft, isDirty, sessionEmail, activeView]);
+
+  useEffect(() => { if (sessionEmail) void refreshCloudShipments(sessionEmail); }, [showArchived]);
+
   function updateField<K extends keyof ShipmentDraft>(key: K, value: ShipmentDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+    setIsDirty(true);
+    setAutoSaveStatus("Ada perubahan belum tersimpan");
   }
 
   function getActiveDocLabel(doc: ActiveDoc) {
@@ -290,6 +314,7 @@ export function Workspace() {
       ...current,
       [key]: current[key].map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
     }));
+    setIsDirty(true);
   }
 
   function addRow(key: "containers" | "cargo" | "invoiceItems") {
@@ -302,6 +327,7 @@ export function Workspace() {
             ? [...current.cargo, newCargo()]
             : [...current.invoiceItems, newInvoiceItem()],
     }));
+    setIsDirty(true);
   }
 
   function removeRow(key: "containers" | "cargo" | "invoiceItems", index: number) {
@@ -309,6 +335,7 @@ export function Workspace() {
       ...current,
       [key]: current[key].filter((_, rowIndex) => rowIndex !== index),
     }));
+    setIsDirty(true);
   }
 
   function saveDraftLocal() {
@@ -323,32 +350,34 @@ export function Workspace() {
     setCloudStatus("Draft saved locally.");
   }
 
-  function handleSaveStandaloneInvoice() {
-    window.localStorage.setItem(INVOICE_STORAGE_KEY, JSON.stringify(standaloneInvoice));
-    
-    // Update or add to savedInvoices list
-    setSavedInvoices((prev) => {
-      const idx = prev.findIndex((i) => i.invoiceNumber === standaloneInvoice.invoiceNumber);
-      let updatedList;
-      if (idx >= 0) {
-        updatedList = prev.map((item, i) => (i === idx ? standaloneInvoice : item));
+  async function handleSaveStandaloneInvoice() {
+    if (!standaloneInvoice.invoiceNumber.trim()) return setCloudStatus("Nomor invoice wajib diisi.");
+    setIsBusy(true);
+    try {
+      const payload = {
+        invoice_number: standaloneInvoice.invoiceNumber, date: standaloneInvoice.date || null, due_date: standaloneInvoice.dueDate || null,
+        customer_id: standaloneInvoice.customerId, customer_name: standaloneInvoice.customerName, company_name: standaloneInvoice.companyName,
+        street_address: standaloneInvoice.streetAddress, city: standaloneInvoice.city, phone: standaloneInvoice.phone,
+        discount: Number(standaloneInvoice.discount || 0), ppn_rate: standaloneInvoice.ppnRate, pph_rate: standaloneInvoice.pphRate,
+        other_amount: Number(standaloneInvoice.otherAmount || 0), bank_code: standaloneInvoice.bankCode, bank_name: standaloneInvoice.bankName,
+        bank_account_name: standaloneInvoice.bankAccountName, bank_account_number: standaloneInvoice.bankAccountNumber, signer_name: standaloneInvoice.signerName,
+        updated_at: new Date().toISOString(), archived_at: null,
+      };
+      let invoiceId = standaloneInvoice.id;
+      if (invoiceId) {
+        const { error } = await db.from("standalone_invoices").update(payload).eq("id", invoiceId); if (error) throw error;
       } else {
-        updatedList = [standaloneInvoice, ...prev];
+        const { data, error } = await db.from("standalone_invoices").insert(payload).select("id").single(); if (error) throw error; invoiceId = data.id;
       }
-      window.localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(updatedList));
-      return updatedList;
-    });
-
-    addHistoryLog({
-      batch: "Rekap Invoice",
-      si: draft.siNumber || "-",
-      bl: draft.blNumber || "-",
-      invoice: standaloneInvoice.invoiceNumber || "-",
-      changedFields: `Pembaruan Standalone Invoice (${standaloneInvoice.companyName || standaloneInvoice.customerName || "-"})`,
-    });
-
-    setCloudStatus(`Invoice ${standaloneInvoice.invoiceNumber} berhasil disimpan.`);
-    alert(`Invoice ${standaloneInvoice.invoiceNumber} berhasil disimpan ke Rekap Invoice!`);
+      const { error: deleteError } = await db.from("standalone_invoice_items").delete().eq("invoice_id", invoiceId); if (deleteError) throw deleteError;
+      if (standaloneInvoice.items.length) {
+        const { error } = await db.from("standalone_invoice_items").insert(standaloneInvoice.items.map((item, index) => ({ invoice_id: invoiceId, description: item.description, quantity: Number(item.quantity || 0), unit: item.unit, unit_price: Number(item.unitPrice || 0), sort_order: index }))); if (error) throw error;
+      }
+      window.localStorage.removeItem(INVOICE_STORAGE_KEY); window.localStorage.removeItem(SAVED_INVOICES_KEY);
+      setStandaloneInvoice((current) => ({ ...current, id: invoiceId }));
+      await refreshCloudInvoices();
+      setCloudStatus(`Invoice ${standaloneInvoice.invoiceNumber} tersimpan di cloud.`);
+    } catch (error) { setCloudStatus(`Invoice gagal disimpan: ${(error as Error).message}`); } finally { setIsBusy(false); }
   }
 
   function handleLoadStandaloneInvoice(inv: StandaloneInvoice) {
@@ -378,18 +407,13 @@ export function Workspace() {
     updateField("siNumber", suggested);
   }
 
-  function handleDeleteStandaloneInvoice(invNo: string) {
+  async function handleDeleteStandaloneInvoice(invNo: string) {
     if (!confirm(`Hapus Invoice ${invNo} dari rekap?`)) return;
-    setSavedInvoices((prev) => {
-      const filtered = prev.filter((i) => i.invoiceNumber !== invNo);
-      window.localStorage.setItem(SAVED_INVOICES_KEY, JSON.stringify(filtered));
-      return filtered;
-    });
+    const found = savedInvoices.find((item) => item.invoiceNumber === invNo);
+    if (!found?.id) return;
+    const { error } = await db.from("standalone_invoices").update({ archived_at: new Date().toISOString() }).eq("id", found.id);
+    if (error) setCloudStatus(error.message); else await refreshCloudInvoices();
   }
-
-  useEffect(() => {
-    window.localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(customers));
-  }, [customers]);
 
   function loadSample() {
     setDraft(structuredClone(sampleDraft));
@@ -424,22 +448,75 @@ export function Workspace() {
     router.replace("/system-bl/login");
   }
 
+  async function refreshWorkspaceData(overrideEmail?: string | null) {
+    await Promise.all([refreshCloudShipments(overrideEmail), refreshCloudInvoices(), refreshCloudCustomers(), refreshMasterData()]);
+  }
+
+  async function refreshCloudCustomers() {
+    const { data, error } = await db.from("customers_master").select("*").order("company_name");
+    if (error) return;
+    const cloud = (data ?? []).map((row: any) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name ?? "", companyName: row.company_name, streetAddress: row.street_address ?? "", city: row.city ?? "", phone: row.phone ?? "", updatedAt: row.updated_at }));
+    const localRaw = window.localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+    if (!cloud.length && localRaw) {
+      try { const local = JSON.parse(localRaw) as CustomerMaster[]; if (local.length) await db.from("customers_master").insert(local.map(item => ({ customer_id:item.customerId, customer_name:item.customerName, company_name:item.companyName, street_address:item.streetAddress, city:item.city, phone:item.phone }))); window.localStorage.removeItem(CUSTOMERS_STORAGE_KEY); return refreshCloudCustomers(); } catch { /* invalid legacy data */ }
+    }
+    setCustomers(cloud.length ? cloud : []);
+  }
+
+  async function refreshCloudInvoices() {
+    const { data, error } = await db.from("standalone_invoices").select("*, standalone_invoice_items(*)").is("archived_at", null).order("date", { ascending:false });
+    if (error) return;
+    const cloud = (data ?? []).map(mapCloudInvoice);
+    const localRaw = window.localStorage.getItem(SAVED_INVOICES_KEY);
+    if (!cloud.length && localRaw) {
+      try {
+        const local = JSON.parse(localRaw) as StandaloneInvoice[];
+        for (const invoice of local) {
+          const { data: inserted } = await db.from("standalone_invoices").insert({ invoice_number:invoice.invoiceNumber, date:invoice.date||null, due_date:invoice.dueDate||null, customer_id:invoice.customerId, customer_name:invoice.customerName, company_name:invoice.companyName, street_address:invoice.streetAddress, city:invoice.city, phone:invoice.phone, discount:Number(invoice.discount||0), ppn_rate:invoice.ppnRate, pph_rate:invoice.pphRate, other_amount:Number(invoice.otherAmount||0), bank_code:invoice.bankCode, bank_name:invoice.bankName, bank_account_name:invoice.bankAccountName, bank_account_number:invoice.bankAccountNumber, signer_name:invoice.signerName }).select("id").single();
+          if (inserted?.id && invoice.items.length) await db.from("standalone_invoice_items").insert(invoice.items.map((item,index)=>({invoice_id:inserted.id,description:item.description,quantity:Number(item.quantity||0),unit:item.unit,unit_price:Number(item.unitPrice||0),sort_order:index})));
+        }
+        window.localStorage.removeItem(SAVED_INVOICES_KEY); window.localStorage.removeItem(INVOICE_STORAGE_KEY);
+        return refreshCloudInvoices();
+      } catch { /* ignore corrupt legacy data */ }
+    }
+    setSavedInvoices(cloud);
+  }
+
+  async function refreshMasterData() {
+    const { data, error } = await db.from("master_data").select("id,category,label,value").order("label");
+    if (!error) setMasterData((data ?? []) as MasterDataItem[]);
+  }
+
+  async function saveCustomerMaster(customer: CustomerMaster) {
+    const payload = { customer_id:customer.customerId, customer_name:customer.customerName, company_name:customer.companyName, street_address:customer.streetAddress, city:customer.city, phone:customer.phone };
+    const { error } = customer.id && !customer.id.startsWith("cust-") ? await db.from("customers_master").update(payload).eq("id",customer.id) : await db.from("customers_master").insert(payload);
+    if (error) setCloudStatus(error.message); else await refreshCloudCustomers();
+  }
+  async function deleteCustomerMaster(id:string) { const {error}=await db.from("customers_master").delete().eq("id",id); if(error)setCloudStatus(error.message);else await refreshCloudCustomers(); }
+
+  async function addMasterData(item: Omit<MasterDataItem,"id">) { const {error}=await db.from("master_data").insert(item); if(error)setCloudStatus(error.message);else await refreshMasterData(); }
+  async function deleteMasterData(id:string) { const {error}=await db.from("master_data").delete().eq("id",id); if(error)setCloudStatus(error.message);else await refreshMasterData(); }
+
   async function refreshCloudShipments(overrideEmail?: string | null) {
     const activeEmail = overrideEmail ?? sessionEmail;
     if (!activeEmail && supabase) return;
     setCloudStatus("Memuat daftar shipment...");
-    let { data, error } = await db
+    let query = db
       .from("shipments")
-      .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at")
+      .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at, archived_at")
       .order("updated_at", { ascending: false })
       .limit(50);
+    if (!showArchived) query = query.is("archived_at", null);
+    let { data, error } = await query;
+    const { count } = await db.from("shipments").select("id", { count:"exact", head:true }).not("archived_at", "is", null);
+    setArchivedCount(count ?? 0);
 
     if (error && (error.message.includes("JWT") || error.message.includes("jwt"))) {
       try {
         if (supabase) await supabase.auth.refreshSession();
         const retryRes = await db
           .from("shipments")
-          .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at")
+          .select("id, document_batch, si_number, bl_number, invoice_number, issue_date, updated_at, archived_at")
           .order("updated_at", { ascending: false })
           .limit(50);
         data = retryRes.data;
@@ -486,13 +563,16 @@ export function Workspace() {
     }));
   }
 
-  async function saveToCloud() {
+  async function saveToCloud(silent = false) {
     if (!sessionEmail) {
       setCloudStatus("Login dulu sebelum save ke cloud.");
       return;
     }
     setIsBusy(true);
-    setCloudStatus("Saving shipment to Supabase...");
+    const issues = validateShipment(draft);
+    if (issues.some((issue) => issue.level === "error")) { setCloudStatus(`Validasi gagal: ${issues.find(issue=>issue.level==="error")?.message}`); setAutoSaveStatus("Autosave tertahan oleh validasi"); return; }
+    if (silent) setAutoSaveStatus("Menyimpan otomatis..."); else setCloudStatus("Saving shipment to Supabase...");
+    setIsDirty(false);
     const shipmentPayload = mapStateToShipmentPayload(draft);
     try {
       const containers = draft.containers.map((row, index) => ({
@@ -531,7 +611,9 @@ export function Workspace() {
       if (error) throw error;
       const saved = data?.[0];
       if (!saved) throw new Error("Supabase tidak mengembalikan hasil penyimpanan.");
-      setDraft((current) => ({ ...current, id: saved.id, updatedAt: saved.updated_at }));
+      const { data: latest } = await db.from("shipments").select("updated_at").eq("id", saved.id).single();
+      setDraft((current) => ({ ...current, id: saved.id, updatedAt: latest?.updated_at ?? saved.updated_at }));
+      setAutoSaveStatus(`Tersimpan ${new Date().toLocaleTimeString("id-ID", {hour:"2-digit",minute:"2-digit"})}`);
 
       saveDraftLocal();
       addHistoryLog({
@@ -541,13 +623,14 @@ export function Workspace() {
         invoice: draft.invoiceNumber || "-",
         changedFields: `Sinkronisasi Cloud Supabase (Batch: ${draft.documentBatch}, B/L: ${draft.blNumber || "-"})`,
       });
-      setCloudStatus(`Shipment ${draft.documentBatch} tersimpan aman ke Supabase.`);
+      if (!silent) setCloudStatus(`Shipment ${draft.documentBatch} tersimpan aman ke Supabase.`);
       await refreshCloudShipments();
       setActiveView("dashboard");
     } catch (error) {
       const message = (error as Error).message;
       if (message.includes("SAVE_CONFLICT")) {
         setCloudStatus("Konflik terdeteksi: data sudah diubah perangkat lain. Muat ulang shipment sebelum menyimpan lagi.");
+        setAutoSaveStatus("Konflik: muat ulang sebelum menyimpan");
       } else if (message.includes("DUPLICATE_BL")) {
         setCloudStatus("Nomor B/L sudah digunakan shipment lain. Buka record yang ada atau gunakan nomor berbeda.");
       } else {
@@ -558,38 +641,27 @@ export function Workspace() {
     }
   }
 
-  async function deleteShipmentBatch(shipmentId: string, batchName?: string) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus shipment batch ${batchName || shipmentId}?`)) return;
-
+  async function archiveShipment(shipmentId: string, batchName?: string, restore = false) {
+    if (!confirm(`${restore ? "Pulihkan" : "Arsipkan"} shipment ${batchName || shipmentId}?`)) return;
     setIsBusy(true);
-    setCloudStatus("Menghapus shipment...");
+    setCloudStatus(restore ? "Memulihkan shipment..." : "Mengarsipkan shipment...");
 
     try {
-      if (supabase) {
-        await db.from("shipment_containers").delete().eq("shipment_id", shipmentId);
-        await db.from("shipment_cargo_items").delete().eq("shipment_id", shipmentId);
-        await db.from("invoice_items").delete().eq("shipment_id", shipmentId);
-        const { error } = await db.from("shipments").delete().eq("id", shipmentId);
-        if (error) throw error;
-      }
-
-      setCloudShipments((prev) => prev.filter((item) => item.id !== shipmentId));
-      setLocalHistoryLogs((prev) => prev.filter((item) => item.id !== shipmentId));
-
-      addHistoryLog({
-        batch: batchName || shipmentId,
-        si: "",
-        bl: "",
-        invoice: "",
-        changedFields: `Hapus Shipment Batch (${batchName || shipmentId})`,
-      });
-
-      setCloudStatus(`Shipment ${batchName || shipmentId} berhasil dihapus.`);
+      const { error } = await db.from("shipments").update({ archived_at: restore ? null : new Date().toISOString() }).eq("id", shipmentId);
+      if (error) throw error;
+      await refreshCloudShipments();
+      setCloudStatus(`Shipment ${batchName || shipmentId} berhasil ${restore ? "dipulihkan" : "diarsipkan"}.`);
     } catch (err) {
-      setCloudStatus(`Hapus gagal: ${(err as Error).message}`);
+      setCloudStatus(`Proses arsip gagal: ${(err as Error).message}`);
     } finally {
       setIsBusy(false);
     }
+  }
+
+  async function cloneShipment(shipmentId: string) {
+    await loadShipmentById(shipmentId);
+    setDraft((current) => ({ ...current, id:null, updatedAt:null, documentBatch:`${current.documentBatch}-COPY`, blNumber:"", siNumber:"", invoiceNumber:"", containers:current.containers.map(row=>({...row,id:null})), cargo:current.cargo.map(row=>({...row,id:null})), invoiceItems:current.invoiceItems.map(row=>({...row,id:null})) }));
+    setIsDirty(true); setAutoSaveStatus("Hasil clone belum disimpan"); setActiveView("editor");
   }
 
   async function loadShipmentById(shipmentId: string) {
@@ -704,6 +776,8 @@ export function Workspace() {
             }}
             label="History Logs"
           />
+          <SidebarButton active={activeView === "analytics"} onClick={() => { setActiveView("analytics"); setIsMobileMenuOpen(false); }} label="Analytics" />
+          <SidebarButton active={activeView === "updates"} onClick={() => { setActiveView("updates"); setIsMobileMenuOpen(false); }} label="Update Sistem" />
         </nav>
 
         <div className={styles.sidebarFooter}>
@@ -725,22 +799,10 @@ export function Workspace() {
             </button>
             <div>
               <h2 className={styles.pageTitle}>
-                {activeView === "dashboard"
-                  ? "Dashboard"
-                  : activeView === "editor"
-                    ? "Bill of Lading Editor"
-                    : activeView === "invoice"
-                      ? "Invoice Management (Spreadsheet Model)"
-                      : "History Logs"}
+                {{dashboard:"Dashboard",editor:"Bill of Lading Editor",invoice:"Invoice Management",history:"History Logs",analytics:"Dashboard Analitik",updates:"Update Sistem"}[activeView]}
               </h2>
               <p className={styles.pageSubtitle}>
-                {activeView === "dashboard"
-                  ? "Monitor shipment drafts, status, and cargo document workflow."
-                  : activeView === "editor"
-                    ? "Create, edit, review, and print B/L and Shipping Instruction."
-                    : activeView === "invoice"
-                      ? "Kelola Invoice, Rekap Invoice, dan Customer Database terpisah presisi format Excel."
-                      : "Quick access to recent cloud shipments stored in Supabase."}
+                {{dashboard:"Monitor shipment aktif dan arsip.",editor:"Create, validate, autosave, review, and print B/L.",invoice:"Invoice dan customer tersinkron ke Supabase.",history:"Audit perubahan cloud.",analytics:"Ringkasan shipment dan nilai invoice.",updates:"Catatan fitur dan perubahan sistem."}[activeView]}
               </p>
             </div>
           </div>
@@ -799,6 +861,7 @@ export function Workspace() {
                 </label>
               </div>
               <div className={styles.actionGroup}>
+                <button className={styles.outlineButton} onClick={() => setShowArchived(value => !value)} type="button">{showArchived ? "Lihat Aktif" : `Arsip (${archivedCount})`}</button>
                 <button className={styles.outlineButton} onClick={loadSample} type="button">
                   Load Sample
                 </button>
@@ -905,10 +968,11 @@ export function Workspace() {
                               >
                                 <span>👁️</span>
                               </button>
+                              <button className={styles.outlineButton} title="Clone Shipment" onClick={() => void cloneShipment(item.id)} type="button">Clone</button>
                               <button
-                                title="Hapus Shipment Batch"
+                                title={item.archived_at ? "Pulihkan Shipment" : "Arsipkan Shipment"}
                                 style={{
-                                  background: "#dc2626",
+                                  background: item.archived_at ? "#059669" : "#dc2626",
                                   color: "#ffffff",
                                   border: "none",
                                   borderRadius: "6px",
@@ -921,10 +985,10 @@ export function Workspace() {
                                   fontWeight: 600,
                                   boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                                 }}
-                                onClick={() => void deleteShipmentBatch(item.id, item.document_batch || item.bl_number || item.id)}
+                                onClick={() => void archiveShipment(item.id, item.document_batch || item.bl_number || item.id, Boolean(item.archived_at))}
                                 type="button"
                               >
-                                <span>🗑️</span>
+                                <span>{item.archived_at ? "Restore" : "Archive"}</span>
                               </button>
                             </div>
                           </td>
@@ -974,6 +1038,10 @@ export function Workspace() {
               <p className={styles.panelNote}>Login operasional tersedia melalui jalur internal `/system-bl/login`.</p>
             </section>
           </section>
+        ) : activeView === "analytics" ? (
+          <><AnalyticsDashboard shipments={cloudShipments.filter(item=>!item.archived_at)} invoices={savedInvoices} archivedCount={archivedCount} /><MasterDataPanel items={masterData} onAdd={addMasterData} onDelete={deleteMasterData} /></>
+        ) : activeView === "updates" ? (
+          <SystemUpdates />
         ) : activeView === "invoice" ? (
           <section className={styles.viewSection}>
             <StandaloneInvoiceModule
@@ -986,6 +1054,8 @@ export function Workspace() {
               onLoadInvoice={handleLoadStandaloneInvoice}
               onNewInvoice={handleNewStandaloneInvoice}
               onDeleteInvoice={handleDeleteStandaloneInvoice}
+              onSaveCustomer={saveCustomerMaster}
+              onDeleteCustomer={deleteCustomerMaster}
             />
           </section>
         ) : activeView === "history" ? (
@@ -1142,6 +1212,7 @@ export function Workspace() {
                 Back to Dashboard
               </button>
               <div className={styles.actionGroup}>
+                <span className={styles.panelNote}>{autoSaveStatus}</span>
                 <button className={styles.outlineButton} onClick={loadSample} type="button">
                   Load Sample Data
                 </button>
@@ -1158,6 +1229,7 @@ export function Workspace() {
             </div>
 
             <section className={styles.panel}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>{validationIssues.length ? validationIssues.map((issue,index)=><span key={issue.field+index} style={{padding:"6px 10px",borderRadius:8,fontSize:12,background:issue.level==="error"?"rgba(220,38,38,.18)":"rgba(245,158,11,.18)",color:issue.level==="error"?"#fca5a5":"#fcd34d",border:`1px solid ${issue.level==="error"?"#dc2626":"#d97706"}`}}>{issue.level === "error" ? "Error" : "Warning"}: {issue.message}</span>) : <span style={{color:"#86efac"}}>Dokumen lolos validasi.</span>}</div>
               <div className={styles.tabsNav}>
                 {[
                   ["general", "General Info"],
@@ -1193,21 +1265,21 @@ export function Workspace() {
 
               {editorTab === "parties" && (
                 <EditorGrid>
-                  <Field label="Shipper" multiline value={draft.shipper} onChange={(value) => updateField("shipper", value)} />
-                  <Field label="Consignee" multiline value={draft.consignee} onChange={(value) => updateField("consignee", value)} />
-                  <Field label="Notify party" multiline value={draft.notifyParty} onChange={(value) => updateField("notifyParty", value)} />
-                  <Field label="Carrier / agent" multiline value={draft.carrier} onChange={(value) => updateField("carrier", value)} />
+                  <Field label="Shipper" multiline suggestions={masterOptions("shipper")} value={draft.shipper} onChange={(value) => updateField("shipper", value)} />
+                  <Field label="Consignee" multiline suggestions={masterOptions("consignee")} value={draft.consignee} onChange={(value) => updateField("consignee", value)} />
+                  <Field label="Notify party" multiline suggestions={masterOptions("notify_party")} value={draft.notifyParty} onChange={(value) => updateField("notifyParty", value)} />
+                  <Field label="Carrier / agent" multiline suggestions={masterOptions("carrier")} value={draft.carrier} onChange={(value) => updateField("carrier", value)} />
                   <Field label="Attention" value={draft.attention} onChange={(value) => updateField("attention", value)} />
                 </EditorGrid>
               )}
 
               {editorTab === "routing" && (
                 <EditorGrid>
-                  <Field label="Place of loading" value={draft.placeOfLoading} onChange={(value) => updateField("placeOfLoading", value)} />
-                  <Field label="Port of loading" value={draft.portOfLoading} onChange={(value) => updateField("portOfLoading", value)} />
-                  <Field label="Port of discharge" value={draft.portOfDischarge} onChange={(value) => updateField("portOfDischarge", value)} />
+                  <Field label="Place of loading" suggestions={masterOptions("port")} value={draft.placeOfLoading} onChange={(value) => updateField("placeOfLoading", value)} />
+                  <Field label="Port of loading" suggestions={masterOptions("port")} value={draft.portOfLoading} onChange={(value) => updateField("portOfLoading", value)} />
+                  <Field label="Port of discharge" suggestions={masterOptions("port")} value={draft.portOfDischarge} onChange={(value) => updateField("portOfDischarge", value)} />
                   <Field label="Final destination" value={draft.finalDestination} onChange={(value) => updateField("finalDestination", value)} />
-                  <Field label="Vessel" value={draft.vessel} onChange={(value) => updateField("vessel", value)} />
+                  <Field label="Vessel" suggestions={masterOptions("vessel")} value={draft.vessel} onChange={(value) => updateField("vessel", value)} />
                   <Field label="Voyage" value={draft.voyage} onChange={(value) => updateField("voyage", value)} />
                   <Field label="Connecting vessel" value={draft.connectingVessel} onChange={(value) => updateField("connectingVessel", value)} />
                   <Field label="ETD" type="date" value={draft.etd} onChange={(value) => updateField("etd", value)} />
@@ -1300,6 +1372,16 @@ function SidebarButton({ active, onClick, label }: { active: boolean; onClick: (
   );
 }
 
+function mapCloudInvoice(row: any): StandaloneInvoice {
+  return {
+    id: row.id, invoiceNumber: row.invoice_number, date: row.date ?? "", dueDate: row.due_date ?? "", customerId: row.customer_id ?? "",
+    customerName: row.customer_name ?? "", companyName: row.company_name ?? "", streetAddress: row.street_address ?? "", city: row.city ?? "", phone: row.phone ?? "",
+    items: (row.standalone_invoice_items ?? []).sort((a:any,b:any)=>(a.sort_order??0)-(b.sort_order??0)).map((item:any)=>({id:item.id,description:item.description??"",quantity:String(item.quantity??0),unit:item.unit??"",unitPrice:String(item.unit_price??0)})),
+    discount:String(row.discount??0), ppnRate:Number(row.ppn_rate??11), pphRate:Number(row.pph_rate??2), otherAmount:String(row.other_amount??0), bankCode:row.bank_code??"014",
+    bankName:row.bank_name??"", bankAccountName:row.bank_account_name??"", bankAccountNumber:row.bank_account_number??"", signerName:row.signer_name??"", updatedAt:row.updated_at, archivedAt:row.archived_at,
+  };
+}
+
 function EditorGrid({ children }: { children: React.ReactNode }) {
   return <div className={styles.editorGrid}>{children}</div>;
 }
@@ -1311,6 +1393,7 @@ function Field({
   onSuggest,
   multiline = false,
   type = "text",
+  suggestions = [],
 }: {
   label: string;
   value: string;
@@ -1318,7 +1401,9 @@ function Field({
   onSuggest?: () => void;
   multiline?: boolean;
   type?: string;
+  suggestions?: string[];
 }) {
+  const listId = `suggest-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <label className={styles.fieldLabel}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1342,9 +1427,9 @@ function Field({
         )}
       </div>
       {multiline ? (
-        <textarea rows={4} value={value} onChange={(event) => onChange(event.target.value)} />
+        <><textarea rows={4} value={value} onChange={(event) => onChange(event.target.value)} />{suggestions.length > 0 && <select value="" onChange={(event)=>event.target.value && onChange(event.target.value)}><option value="">Pilih dari master data...</option>{suggestions.map(item=><option key={item} value={item}>{item.split("\n")[0]}</option>)}</select>}</>
       ) : (
-        <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+        <><input type={type} list={suggestions.length ? listId : undefined} value={value} onChange={(event) => onChange(event.target.value)} />{suggestions.length > 0 && <datalist id={listId}>{suggestions.map(item=><option key={item} value={item} />)}</datalist>}</>
       )}
     </label>
   );

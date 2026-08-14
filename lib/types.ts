@@ -79,6 +79,7 @@ export type ShipmentListItem = {
   shipment_id?: string | null;
   operation?: string | null;
   source_table?: string | null;
+  archived_at?: string | null;
 };
 
 export type CustomerMaster = {
@@ -89,6 +90,7 @@ export type CustomerMaster = {
   streetAddress: string;
   city: string;
   phone: string;
+  updatedAt?: string | null;
 };
 
 export type StandaloneInvoice = {
@@ -112,4 +114,13 @@ export type StandaloneInvoice = {
   bankAccountName: string;
   bankAccountNumber: string;
   signerName: string;
+  updatedAt?: string | null;
+  archivedAt?: string | null;
+};
+
+export type MasterDataItem = {
+  id: string;
+  category: "shipper" | "consignee" | "notify_party" | "carrier" | "port" | "vessel" | "charge";
+  label: string;
+  value: string;
 };
