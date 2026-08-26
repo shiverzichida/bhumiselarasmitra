@@ -2,37 +2,93 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Runs every 3 days at 00:00 UTC
-    - cron: '0 0 */3 * *'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+    # Every day at 07:15 Asia/Jakarta (00:15 UTC).
+    # Avoid the top of the hour, when scheduled GitHub Actions are busiest.
+    - cron: "15 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keep-alive
+  cancel-in-progress: false
 
 jobs:
   ping-supabase:
+    name: Run daily database activity checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
     steps:
-      - name: Ping Supabase REST API
+      - name: Validate required secrets
+        shell: bash
         run: |
-          SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
-          SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+          set -Eeuo pipefail
 
-          # Fallback values if secrets are not defined in repository settings
-          if [ -z "$SUPABASE_URL" ]; then
-            SUPABASE_URL="https://ocpjomvbjtlowvnmzglm.supabase.co"
-          fi
-          if [ -z "$SUPABASE_ANON_KEY" ]; then
-            SUPABASE_ANON_KEY="sb_publishable_zbODHZCExUR6gUffH-btWg_Zi2IWl56"
+          if [[ -z "${SUPABASE_URL:-}" ]]; then
+            echo "::error::Repository secret NEXT_PUBLIC_SUPABASE_URL is missing."
+            exit 1
           fi
 
-          echo "Pinging Supabase at $SUPABASE_URL ..."
-          
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/shipments?select=id&limit=1")
-
-          echo "HTTP Status Code: $RESPONSE"
-          if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 206 ]; then
-            echo "✅ Supabase is active and responding clean!"
-          else
-            echo "⚠️ Supabase responded with HTTP code $RESPONSE (Ping recorded successfully)"
+          if [[ -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
+            echo "::error::Repository secret NEXT_PUBLIC_SUPABASE_ANON_KEY is missing."
+            exit 1
           fi
+
+          if [[ ! "$SUPABASE_URL" =~ ^https://[a-z0-9-]+\.supabase\.co/?$ ]]; then
+            echo "::error::NEXT_PUBLIC_SUPABASE_URL is not a valid Supabase project URL."
+            exit 1
+          fi
+
+      - name: Query Supabase REST API
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          endpoints=(
+            "shipments?select=id&limit=1"
+            "customers_master?select=id&limit=1"
+            "standalone_invoices?select=id&limit=1"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            http_code="$(curl --silent --show-error \
+              --retry 3 \
+              --retry-delay 3 \
+              --retry-all-errors \
+              --connect-timeout 15 \
+              --max-time 30 \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+              --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+              --header "Accept: application/json" \
+              "$SUPABASE_URL/rest/v1/$endpoint")"
+
+            if [[ "$http_code" != "200" && "$http_code" != "206" ]]; then
+              echo "::error::Supabase keep-alive failed for ${endpoint%%\?*} with HTTP $http_code."
+              exit 1
+            fi
+
+            if ! jq --exit-status . "$response_file" >/dev/null; then
+              echo "::error::Supabase returned an invalid JSON response for ${endpoint%%\?*}."
+              exit 1
+            fi
+
+            echo "Successful database query: ${endpoint%%\?*} (HTTP $http_code)"
+            sleep 5
+          done
+
+          {
+            echo "### Supabase keep-alive succeeded"
+            echo ""
+            echo "Three read-only database queries completed successfully."
+            echo "Run time (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+          } >> "$GITHUB_STEP_SUMMARY"
