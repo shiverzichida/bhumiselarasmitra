@@ -109,7 +109,7 @@ export function LoginPage() {
                 Login
               </button>
               <button className={styles.secondary} onClick={() => void registerDemoUser()} type="button" disabled={busy}>
-                Register Demo User
+                Daftar Akun Baru
               </button>
             </div>
             <p className={styles.status}>{status}</p>
